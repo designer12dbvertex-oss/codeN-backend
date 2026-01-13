@@ -56,8 +56,8 @@ export const getAllCourses = async (req, res, next) => {
     }
 
     const courses = await Course.find(filter)
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email')
+      .populate('createdBy', 'name ')
+      .populate('updatedBy', 'name ')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -78,8 +78,8 @@ export const getAllCourses = async (req, res, next) => {
 export const getCourseById = async (req, res, next) => {
   try {
     const course = await Course.findById(req.params.id)
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email');
+      .populate('createdBy', 'name ')
+      .populate('updatedBy', 'name ');
 
     if (!course) {
       return res.status(404).json({

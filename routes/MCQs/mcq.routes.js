@@ -26,7 +26,7 @@ router.get('/', getAllMCQs);
 router.get('/:id', getMCQById);
 
 // Update MCQ
-router.put('/:id', updateMCQ);
+router.patch('/:id', updateMCQ);
 
 // Delete MCQ (soft delete)
 router.delete('/:id', deleteMCQ);
@@ -35,4 +35,3 @@ router.delete('/:id', deleteMCQ);
 router.patch('/:id/status', toggleMCQStatus);
 
 export default router;
-

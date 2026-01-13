@@ -26,7 +26,7 @@ router.get('/', getAllSubjects);
 router.get('/:id', getSubjectById);
 
 // Update subject
-router.put('/:id', updateSubject);
+router.patch('/:id', updateSubject);
 
 // Delete subject (soft delete)
 router.delete('/:id', deleteSubject);
@@ -35,4 +35,3 @@ router.delete('/:id', deleteSubject);
 router.patch('/:id/status', toggleSubjectStatus);
 
 export default router;
-

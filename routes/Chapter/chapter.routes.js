@@ -26,7 +26,7 @@ router.get('/', getAllChapters);
 router.get('/:id', getChapterById);
 
 // Update chapter
-router.put('/:id', updateChapter);
+router.patch('/:id', updateChapter);
 
 // Delete chapter (soft delete)
 router.delete('/:id', deleteChapter);

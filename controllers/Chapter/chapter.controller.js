@@ -170,6 +170,30 @@ export const updateChapter = async (req, res, next) => {
  * @route   DELETE /api/admin/chapters/:id
  * @access  Private/Admin
  */
+// export const deleteChapter = async (req, res, next) => {
+//   try {
+//     const chapter = await Chapter.findById(req.params.id);
+
+//     if (!chapter) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Chapter not found',
+//       });
+//     }
+
+//     // Soft delete - change status to inactive
+//     chapter.status = 'inactive';
+//     chapter.updatedBy = req.admin._id;
+//     await chapter.save();
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Chapter deleted successfully',
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 export const deleteChapter = async (req, res, next) => {
   try {
     const chapter = await Chapter.findById(req.params.id);
@@ -181,20 +205,16 @@ export const deleteChapter = async (req, res, next) => {
       });
     }
 
-    // Soft delete - change status to inactive
-    chapter.status = 'inactive';
-    chapter.updatedBy = req.admin._id;
-    await chapter.save();
+    await Chapter.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,
-      message: 'Chapter deleted successfully',
+      message: 'Chapter permanently deleted successfully',
     });
   } catch (error) {
     next(error);
   }
 };
-
 /**
  * @desc    Enable/Disable chapter
  * @route   PATCH /api/admin/chapters/:id/status

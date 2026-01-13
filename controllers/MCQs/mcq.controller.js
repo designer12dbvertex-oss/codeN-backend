@@ -89,8 +89,8 @@ export const getAllMCQs = async (req, res, next) => {
 
     const mcqs = await MCQ.find(filter)
       .populate('chapterId', 'name subSubjectId')
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email')
+      .populate('createdBy', 'name ')
+      .populate('updatedBy', 'name ')
       .sort({ createdAt: -1 });
 
     res.status(200).json({
@@ -112,8 +112,8 @@ export const getMCQById = async (req, res, next) => {
   try {
     const mcq = await MCQ.findById(req.params.id)
       .populate('chapterId', 'name description subSubjectId')
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email');
+      .populate('createdBy', 'name ')
+      .populate('updatedBy', 'name ');
 
     if (!mcq) {
       return res.status(404).json({
@@ -209,6 +209,30 @@ export const updateMCQ = async (req, res, next) => {
  * @route   DELETE /api/admin/mcqs/:id
  * @access  Private/Admin
  */
+// export const deleteMCQ = async (req, res, next) => {
+//   try {
+//     const mcq = await MCQ.findById(req.params.id);
+
+//     if (!mcq) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'MCQ not found',
+//       });
+//     }
+
+//     // Soft delete - change status to inactive
+//     mcq.status = 'inactive';
+//     mcq.updatedBy = req.admin._id;
+//     await mcq.save();
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'MCQ deleted successfully',
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 export const deleteMCQ = async (req, res, next) => {
   try {
     const mcq = await MCQ.findById(req.params.id);
@@ -220,20 +244,16 @@ export const deleteMCQ = async (req, res, next) => {
       });
     }
 
-    // Soft delete - change status to inactive
-    mcq.status = 'inactive';
-    mcq.updatedBy = req.admin._id;
-    await mcq.save();
+    await MCQ.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,
-      message: 'MCQ deleted successfully',
+      message: 'MCQ permanently deleted successfully',
     });
   } catch (error) {
     next(error);
   }
 };
-
 /**
  * @desc    Enable/Disable MCQ
  * @route   PATCH /api/admin/mcqs/:id/status
@@ -265,11 +285,12 @@ export const toggleMCQStatus = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: `MCQ ${status === 'active' ? 'enabled' : 'disabled'} successfully`,
+      message: `MCQ ${
+        status === 'active' ? 'enabled' : 'disabled'
+      } successfully`,
       data: mcq,
     });
   } catch (error) {
     next(error);
   }
 };
-

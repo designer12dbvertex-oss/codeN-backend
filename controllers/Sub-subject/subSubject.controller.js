@@ -54,8 +54,8 @@ export const getAllSubSubjects = async (req, res, next) => {
 
     const subSubjects = await SubSubject.find(filter)
       .populate('subjectId', 'name courseId')
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email')
+      .populate('createdBy', 'name ')
+      .populate('updatedBy', 'name ')
       .sort({ order: 1, createdAt: -1 });
 
     res.status(200).json({
@@ -77,8 +77,8 @@ export const getSubSubjectById = async (req, res, next) => {
   try {
     const subSubject = await SubSubject.findById(req.params.id)
       .populate('subjectId', 'name description courseId')
-      .populate('createdBy', 'name email')
-      .populate('updatedBy', 'name email');
+      .populate('createdBy', 'name ')
+      .populate('updatedBy', 'name ');
 
     if (!subSubject) {
       return res.status(404).json({
@@ -150,6 +150,31 @@ export const updateSubSubject = async (req, res, next) => {
  * @route   DELETE /api/admin/sub-subjects/:id
  * @access  Private/Admin
  */
+// export const deleteSubSubject = async (req, res, next) => {
+//   try {
+//     const subSubject = await SubSubject.findById(req.params.id);
+
+//     if (!subSubject) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Sub-subject not found',
+//       });
+//     }
+
+//     // Soft delete - change status to inactive
+//     subSubject.status = 'inactive';
+//     subSubject.updatedBy = req.admin._id;
+//     await subSubject.save();
+
+//     res.status(200).json({
+//       success: true,
+//       message: 'Sub-subject deleted successfully',
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const deleteSubSubject = async (req, res, next) => {
   try {
     const subSubject = await SubSubject.findById(req.params.id);
@@ -161,20 +186,16 @@ export const deleteSubSubject = async (req, res, next) => {
       });
     }
 
-    // Soft delete - change status to inactive
-    subSubject.status = 'inactive';
-    subSubject.updatedBy = req.admin._id;
-    await subSubject.save();
+    await SubSubject.findByIdAndDelete(req.params.id);
 
     res.status(200).json({
       success: true,
-      message: 'Sub-subject deleted successfully',
+      message: 'Sub-subject permanently deleted successfully',
     });
   } catch (error) {
     next(error);
   }
 };
-
 /**
  * @desc    Enable/Disable sub-subject
  * @route   PATCH /api/admin/sub-subjects/:id/status
@@ -206,11 +227,12 @@ export const toggleSubSubjectStatus = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      message: `Sub-subject ${status === 'active' ? 'enabled' : 'disabled'} successfully`,
+      message: `Sub-subject ${
+        status === 'active' ? 'enabled' : 'disabled'
+      } successfully`,
       data: subSubject,
     });
   } catch (error) {
     next(error);
   }
 };
-
