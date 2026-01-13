@@ -24,18 +24,15 @@ Install dependencies:
 
 npm install
 
-
 Create a .env file by copying .env.example:
 
 copy .env.example .env
-
 
 Set your MongoDB URI and JWT secret inside the .env file.
 
 Start the server:
 
 npm start
-
 
 For development mode (auto-reload):
 
@@ -48,32 +45,32 @@ GET /api/health
 Project Structure
 CodeN-backend/
 ├── config/
-│   ├── db.js                 # MongoDB connection
-│   └── generateToken.js      # JWT token generation
+│ ├── db.js # MongoDB connection
+│ └── generateToken.js # JWT token generation
 ├── controllers/
-│   ├── admin.controller.js   # Admin controller (login)
-│   ├── country.controller.js
-│   ├── state.controller.js
-│   ├── city.controller.js
-│   └── college.controller.js
+│ ├── admin.controller.js # Admin controller (login)
+│ ├── country.controller.js
+│ ├── state.controller.js
+│ ├── city.controller.js
+│ └── college.controller.js
 ├── middleware/
-│   ├── authMiddleware.js     # JWT verification
-│   ├── Authorization.middleware.js  # Role-based authorization
-│   └── errorMiddleware.js    # Global error handling
+│ ├── authMiddleware.js # JWT verification
+│ ├── Authorization.middleware.js # Role-based authorization
+│ └── errorMiddleware.js # Global error handling
 ├── models/
-│   ├── admin.model.js        # Admin model
-│   ├── country.model.js
-│   ├── state.model.js
-│   ├── city.model.js
-│   └── college.model.js
+│ ├── admin.model.js # Admin model
+│ ├── country.model.js
+│ ├── state.model.js
+│ ├── city.model.js
+│ └── college.model.js
 ├── routes/
-│   ├── admin.routes.js       # Admin routes
-│   ├── country.routes.js
-│   ├── state.routes.js
-│   ├── city.routes.js
-│   └── college.routes.js
-├── server.js                 # Entry point
-├── .env.example              # Environment variables example
+│ ├── admin.routes.js # Admin routes
+│ ├── country.routes.js
+│ ├── state.routes.js
+│ ├── city.routes.js
+│ └── college.routes.js
+├── server.js # Entry point
+├── .env.example # Environment variables example
 └── package.json
 
 Environment Variables
@@ -83,4 +80,4 @@ Configured using the .env file.
 Usage
 Protected Routes
 
-For protected routes, use authMiddleware and Authorization.middleware.
+For protected routes, use authMiddleware and Authorization.middleware..
