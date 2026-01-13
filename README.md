@@ -40,34 +40,8 @@ Development mode ke liye (auto-reload):
 npm run dev
 ```
 
-## API Endpoints
 
-### Admin Login
 
-- **POST** `/api/admin/login`
-- **Body:**
-  ```json
-  {
-    "email": "admin@example.com",
-    "password": "password123"
-  }
-  ```
-- **Response:**
-  ```json
-  {
-    "success": true,
-    "message": "Login successful",
-    "data": {
-      "admin": {
-        "id": "...",
-        "name": "...",
-        "email": "...",
-        "role": "admin"
-      },
-      "token": "jwt_token_here"
-    }
-  }
-  ```
 
 ### Health Check
 
@@ -109,11 +83,6 @@ CodeN-backend/
 
 ## Environment Variables
 
-- `MONGODB_URI` - MongoDB connection string
-- `JWT_SECRET` - JWT secret key
-- `JWT_EXPIRE` - JWT expiration time (default: 30d)
-- `PORT` - Server port (default: 5000)
-- `NODE_ENV` - Environment (development/production)
 
 ## Usage
 
@@ -121,11 +90,7 @@ CodeN-backend/
 
 Protected routes ke liye `authMiddleware` aur `Authorization.middleware` use karo:
 
-```javascript
-import { protect } from '../middleware/authMiddleware.js';
-import { authorize } from '../middleware/Authorization.middleware.js';
 
-router.get('/profile', protect, authorize('admin'), getProfile);
 ```
 
 ### Request Headers
