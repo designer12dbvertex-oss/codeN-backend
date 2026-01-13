@@ -15,23 +15,27 @@ Node.js aur Express based backend API with admin authentication.
 ## Installation
 
 1. Dependencies install karo:
+
 ```bash
 npm install
 ```
 
 2. `.env` file create karo aur `.env.example` ko copy karo:
+
 ```bash
-cp .env.example .env
+copy .env.example .env
 ```
 
 3. `.env` file mein apne MongoDB URI aur JWT secret set karo
 
 4. Server start karo:
+
 ```bash
 npm start
 ```
 
 Development mode ke liye (auto-reload):
+
 ```bash
 npm run dev
 ```
@@ -39,6 +43,7 @@ npm run dev
 ## API Endpoints
 
 ### Admin Login
+
 - **POST** `/api/admin/login`
 - **Body:**
   ```json
@@ -65,6 +70,7 @@ npm run dev
   ```
 
 ### Health Check
+
 - **GET** `/api/health`
 
 ## Project Structure
@@ -75,15 +81,27 @@ CodeN-backend/
 │   ├── db.js                 # MongoDB connection
 │   └── generateToken.js      # JWT token generation
 ├── controllers/
-│   └── admin.controller.js   # Admin controller (login)
+│   ├── admin.controller.js   # Admin controller (login)
+│   ├── country.controller.js
+│   ├── state.controller.js
+│   ├── city.controller.js
+│   └── college.controller.js
 ├── middleware/
 │   ├── authMiddleware.js     # JWT verification
 │   ├── Authorization.middleware.js  # Role-based authorization
 │   └── errorMiddleware.js    # Global error handling
 ├── models/
-│   └── admin.model.js        # Admin model
+│   ├── admin.model.js        # Admin model
+│   ├── country.model.js
+│   ├── state.model.js
+│   ├── city.model.js
+│   └── college.model.js
 ├── routes/
-│   └── admin.routes.js       # Admin routes
+│   ├── admin.routes.js       # Admin routes
+│   ├── country.routes.js
+│   ├── state.routes.js
+│   ├── city.routes.js
+│   └── college.routes.js
 ├── server.js                 # Entry point
 ├── .env.example              # Environment variables example
 └── package.json
@@ -117,4 +135,3 @@ Protected routes ke liye header mein token bhejo:
 ```
 Authorization: Bearer <your_jwt_token>
 ```
-
