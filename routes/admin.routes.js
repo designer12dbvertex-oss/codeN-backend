@@ -2,9 +2,31 @@ import express from 'express';
 import { loginAdmin } from '../controllers/admin.controller.js';
 // import { validateAdminToken } from '../middleware/adminToken.middleware.js';
 
+import {
+  getAdminProfile,
+  updateAdminProfile,
+  changeAdminPassword,
+} from '../controllers/admin.controller.js';
+import uploadAdminProfile from '../middleware/uploadAdminProfile.js';
+import { protect } from '../middleware/authMiddleware.js';
+
 const router = express.Router();
 
 // Require a valid admin token header for login attempts
 router.post('/login', loginAdmin);
+
+// Get logged-in admin profile
+router.get('/profile', protect, getAdminProfile);
+
+// Update admin profile (name, phone, image)
+router.put(
+  '/profile',
+  protect,
+  uploadAdminProfile.single('profileImage'),
+  updateAdminProfile
+);
+
+// Change admin password
+router.put('/change-password', protect, changeAdminPassword);
 
 export default router;

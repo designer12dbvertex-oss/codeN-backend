@@ -30,6 +30,26 @@ const adminSchema = new mongoose.Schema(
       enum: ['admin'],
       default: 'admin',
     },
+    phone: {
+      type: String,
+      default: null,
+    },
+
+    profileImage: {
+      type: String,
+      default: null,
+    },
+
+    status: {
+      type: String,
+      enum: ['active', 'inactive'],
+      default: 'active',
+    },
+
+    lastLogin: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

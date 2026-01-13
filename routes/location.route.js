@@ -3,6 +3,7 @@ import express from 'express';
 import {
   addCountry,
   getCountries,
+  getCountryById,
   updateCountry,
   deleteCountry,
 } from '../controllers/country.controller.js';
@@ -10,6 +11,7 @@ import {
 import {
   addState,
   getStates,
+  getStateById,
   updateState,
   deleteState,
 } from '../controllers/state.controller.js';
@@ -17,6 +19,7 @@ import {
 import {
   addCity,
   getCities,
+  getCityById,
   updateCity,
   deleteCity,
 } from '../controllers/city.controller.js';
@@ -24,6 +27,7 @@ import {
 import {
   addCollege,
   getColleges,
+  getCollegeById,
   updateCollege,
   deleteCollege,
 } from '../controllers/college.controller.js';
@@ -33,24 +37,28 @@ const router = express.Router();
 /* COUNTRY */
 router.post('/country', addCountry);
 router.get('/country', getCountries);
+router.get('/country/:id', getCountryById);
 router.put('/country/:id', updateCountry);
 router.delete('/country/:id', deleteCountry);
 
 /* STATE */
 router.post('/state', addState);
 router.get('/state', getStates);
+router.get('/state/:id', getStateById);
 router.put('/state/:id', updateState);
 router.delete('/state/:id', deleteState);
 
 /* CITY */
 router.post('/city', addCity);
 router.get('/city', getCities);
+router.get('/city/:id', getCityById);
 router.put('/city/:id', updateCity);
 router.delete('/city/:id', deleteCity);
 
 /* COLLEGE */
 router.post('/college', addCollege);
 router.get('/college', getColleges);
+router.get('/college/:id', getCollegeById);
 router.put('/college/:id', updateCollege);
 router.delete('/college/:id', deleteCollege);
 

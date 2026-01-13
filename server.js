@@ -1,5 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import path from 'path';
 import connectDB from './config/db.js';
 import adminRoutes from './routes/admin.routes.js';
 import locationRoutes from './routes/location.route.js';
@@ -13,6 +14,10 @@ const app = express();
 
 // Database connect karo
 connectDB();
+
+// static uploads
+app.use('/uploads', express.static(path.resolve('uploads')));
+
 
 // Middleware
 app.use(express.json()); // JSON body parser
