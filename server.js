@@ -9,6 +9,9 @@ import subjectRoutes from './routes/Subject/subject.routes.js';
 import subSubjectRoutes from './routes/Sub-subject/subSubject.routes.js';
 import chapterRoutes from './routes/Chapter/chapter.routes.js';
 import mcqRoutes from './routes/MCQs/mcq.routes.js';
+import bookmarkRoutes from './routes/bookmark.routes.js';
+import adminTestRoutes from './routes/admin/testRoutes.js';
+import userTestRoutes from './routes/user/testRoutes.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import cors from 'cors';
 
@@ -17,7 +20,6 @@ dotenv.config();
 
 // Express app initialize karo
 const app = express();
-
 
 // Database connect karo
 connectDB();
@@ -37,6 +39,9 @@ app.use('/api/admin/subjects', subjectRoutes);
 app.use('/api/admin/sub-subjects', subSubjectRoutes);
 app.use('/api/admin/chapters', chapterRoutes);
 app.use('/api/admin/mcqs', mcqRoutes);
+app.use('/api/bookmarks', bookmarkRoutes);
+app.use('/api/admin/tests', adminTestRoutes);
+app.use('/api/tests', userTestRoutes);
 
 // Health check route
 app.get('/', (req, res) => {
