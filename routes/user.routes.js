@@ -1,5 +1,5 @@
 import express from 'express';
-import { login, loginByGoogle, register, resendOtp, verifyEmail } from '../controllers/userController.js';
+import { changePassword, forgetPassword, login, loginByGoogle, register, resendOtp, verifyEmail } from '../controllers/userController.js';
 
 const userRouter = express.Router();
 
@@ -11,6 +11,12 @@ userRouter.post('/verify-email',verifyEmail)
 userRouter.post('/resend-otp',resendOtp)
 userRouter.post('/register',register)
 userRouter.post('/login',login)
+
+/*forgot password */
+userRouter.post('/forget-password',forgetPassword)
+userRouter.post('/change-password',changePassword)
+
+
 
 
 export default userRouter;

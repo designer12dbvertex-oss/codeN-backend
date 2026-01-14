@@ -28,7 +28,6 @@ const seedAdmin = async () => {
     },
   );
   
-    await admin.save(); // 👈 yahin password hash hoga
 
     console.log('🎉 Admin seeded successfully');
     process.exit();
