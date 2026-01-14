@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import UserModel from '../models/userModel.js';
 import { sendFormEmail } from '../config/mail.js';
+import PageModel from '../models/pageModel.js';
 
 export const loginByGoogle = async (req, res, next) => {
     try {
@@ -136,8 +137,6 @@ export const resendOtp = async (req, res, next) => {
         user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
         await sendFormEmail(email, otp);
         await user.save();
-
-        // TODO: send OTP via email
         console.log('Resent OTP:', otp);
 
         res.json({ message: 'OTP resent successfully' });
@@ -193,6 +192,35 @@ export const changePassword = async (req, res, next) => {
         res.status(200).json({ message: 'Password changed successfully' });
     } catch (error) {
         next(error); 
+    }
+};
+
+export const getSlugByQuery = async (req, res, next) => {
+    try {
+        const { slug } = req.query;
+
+        if (!slug) {
+            return res.status(400).json({
+                message: 'slug query parameter is required',
+            });
+        }
+
+        const page = await PageModel.findOne({
+            slug: String(slug),
+            isActive: true,
+        }).select('slug title content');
+
+        if (!page) {
+            return res.status(404).json({
+                message: 'Page not found',
+            });
+        }
+
+        res.status(200).json({
+            data: page,
+        });
+    } catch (error) {
+        next(error);
     }
 };
 

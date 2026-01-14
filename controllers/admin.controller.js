@@ -1,5 +1,6 @@
 import Admin from '../models/admin.model.js';
 import generateToken from '../config/generateToken.js';
+import PageModel from '../models/pageModel.js';
 
 export const loginAdmin = async (req, res) => {
   const { email, password } = req.body;
@@ -140,4 +141,42 @@ export const changeAdminPassword = async (req, res) => {
     success: true,
     message: 'Password changed successfully. Please login again.',
   });
+};
+export const addSlug = async (req, res, next) => {
+    try {
+        const { slug, title, content } = req.body;
+
+        if (!slug || !title || !content) {
+            return res.status(400).json({
+                message: 'slug, title and content are required',
+            });
+        }
+
+        const existingPage = await PageModel.findOne({ slug });
+
+        if (existingPage) {
+            existingPage.title = title;
+            existingPage.content = content;
+
+            await existingPage.save();
+
+            return res.status(200).json({
+                message: 'Page updated successfully',
+                data: existingPage,
+            });
+        }
+
+        const page = await PageModel.create({
+            slug,
+            title,
+            content,
+        });
+
+        res.status(201).json({
+            message: 'Page created successfully',
+            data: page,
+        });
+    } catch (error) {
+        next(error);
+    }
 };
