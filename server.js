@@ -10,6 +10,7 @@ import subSubjectRoutes from './routes/Sub-subject/subSubject.routes.js';
 import chapterRoutes from './routes/Chapter/chapter.routes.js';
 import mcqRoutes from './routes/MCQs/mcq.routes.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
+import cors from 'cors';
 
 // Environment variables load karo
 dotenv.config();
@@ -17,9 +18,10 @@ dotenv.config();
 // Express app initialize karo
 const app = express();
 
+
 // Database connect karo
 connectDB();
-
+app.use(cors());
 // static uploads
 app.use('/uploads', express.static(path.resolve('uploads')));
 

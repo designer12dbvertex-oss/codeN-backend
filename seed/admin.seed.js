@@ -11,7 +11,8 @@ const seedAdmin = async () => {
     console.log('✅ MongoDB connected');
 
     // check if admin already exists
-    const existingAdmin = await Admin.findOne({ email: 'admin@gmail.com' });
+    const newEmail = 'admin_new@gmail.com';
+    const existingAdmin = await Admin.findOne({ email: newEmail });
 
     if (existingAdmin) {
       console.log('⚠️ Admin already exists');
@@ -20,11 +21,13 @@ const seedAdmin = async () => {
 
     const admin = new Admin({
       name: 'Super Admin',
-      email: 'admin@gmail.com',
-      password: '123456', // 👈 plain password (hash automatically hoga)
+      email: 'admin_test@gmail.com',
+      password: '123456', 
       role: 'admin',
-    });
 
+    },
+  );
+  
     await admin.save(); // 👈 yahin password hash hoga
 
     console.log('🎉 Admin seeded successfully');
