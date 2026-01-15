@@ -18,6 +18,7 @@ import subjectRoutes from './routes/Subject/subject.routes.js';
   import Terms from "./routes/Terms$Condition/termRoute.js"
   import PrivacyRoutes from './routes/PrivacyPolicy/privacy.routes.js';
   import subscriptionRoutes from "./routes/Subscription/subscription.routes.js";
+import videoRoutes from './routes/Video/video.routes.js';
 
 
 
@@ -31,9 +32,11 @@ import subjectRoutes from './routes/Subject/subject.routes.js';
 
   // Database connect karo
   connectDB();
+  import fs from 'fs'; // Top pe import kar lena
+if (!fs.existsSync('./uploads/videos')) fs.mkdirSync('./uploads/videos', { recursive: true });
   app.use(cors());
   // static uploads
-  app.use('/uploads', express.static(path.resolve('uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
   // Middleware
   app.use(express.json()); // JSON body parser
@@ -55,6 +58,7 @@ import subjectRoutes from './routes/Subject/subject.routes.js';
   app.use('/api/tests', userTestRoutes);
 app.use('/api/admin/privacy', PrivacyRoutes);
 app.use("/api/plans", subscriptionRoutes);
+app.use('/api/admin/videos', videoRoutes);
 
 
   // Health check route
