@@ -39,7 +39,7 @@ app.use('/api/admin/chapters', chapterRoutes);
 app.use('/api/admin/mcqs', mcqRoutes);
 
 // Health check route
-app.get('/api/health', (req, res) => {
+app.get('/', (req, res) => {
   res.json({
     success: true,
     message: 'Server is running', // Server chal raha hai
