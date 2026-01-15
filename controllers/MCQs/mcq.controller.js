@@ -4,6 +4,7 @@ import Chapter from '../../models/Chapter/chapter.model.js';
 // ✅ CORRECT MODELS
 import SubSubject from '../../models/Sub-subject/subSubject.model.js';
 import Subject from '../../models/Subject/subject.model.js';
+import Tag from '../../models/Tags/tag.model.js';
 
 /**
  * @desc    Create a new MCQ
@@ -14,6 +15,7 @@ export const createMCQ = async (req, res, next) => {
   try {
     const {
       chapterId,
+      tagId,
       question,
       options,
       correctAnswer,
@@ -25,12 +27,36 @@ export const createMCQ = async (req, res, next) => {
       status,
     } = req.body;
 
+    
+    if (!tagId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tag is required',
+      });
+    }
+
     // 1️⃣ Verify chapter
     const chapter = await Chapter.findById(chapterId);
     if (!chapter) {
       return res.status(404).json({
         success: false,
         message: 'Chapter not found',
+      });
+    }
+    // 1️⃣ Verify Tag
+    const tag = await Tag.findById(tagId);
+    if (!tag) {
+      return res.status(404).json({
+        success: false,
+        message: 'Tag not found',
+      });
+    }
+
+    // 2️⃣ Ensure tag belongs to same chapter
+    if (tag.chapterId.toString() !== chapterId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tag does not belong to this chapter',
       });
     }
 
@@ -74,7 +100,7 @@ export const createMCQ = async (req, res, next) => {
       subjectId: subject._id,
       subSubjectId: subSubject._id,
       chapterId,
-
+      tagId,
       question,
       options,
       correctAnswer,
@@ -109,6 +135,7 @@ export const getAllMCQs = async (req, res, next) => {
   try {
     const {
       courseId,
+      tagId,
       subjectId,
       subSubjectId,
       chapterId,
@@ -121,6 +148,7 @@ export const getAllMCQs = async (req, res, next) => {
 
     // 🔹 Scope filters
     if (courseId) filter.courseId = courseId;
+    if (tagId) filter.tagId = tagId;
     if (subjectId) filter.subjectId = subjectId;
     if (subSubjectId) filter.subSubjectId = subSubjectId;
     if (chapterId) filter.chapterId = chapterId;
@@ -137,6 +165,7 @@ export const getAllMCQs = async (req, res, next) => {
       .populate('subjectId', 'name')
       .populate('subSubjectId', 'name')
       .populate('chapterId', 'name')
+      .populate('tagId', 'name')
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name')
       .sort({ createdAt: -1 });
@@ -163,6 +192,7 @@ export const getMCQById = async (req, res, next) => {
       .populate('subjectId', 'name')
       .populate('subSubjectId', 'name')
       .populate('chapterId', 'name description')
+      .populate('tagId', 'name description') // ✅ UPDATED
       .populate('createdBy', 'name')
       .populate('updatedBy', 'name');
 
@@ -192,6 +222,7 @@ export const updateMCQ = async (req, res, next) => {
   try {
     const {
       chapterId,
+      tagId,
       question,
       options,
       correctAnswer,
@@ -223,6 +254,14 @@ export const updateMCQ = async (req, res, next) => {
         });
       }
 
+      // 🔴 IMPORTANT: chapter change → tag MUST be provided
+      if (!tagId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tag is required when changing chapter',
+        });
+      }
+
       const subSubject = await SubSubject.findById(chapter.subSubjectId);
       if (!subSubject) {
         return res.status(404).json({
@@ -244,6 +283,30 @@ export const updateMCQ = async (req, res, next) => {
       mcq.subSubjectId = subSubject._id;
       mcq.subjectId = subject._id;
       mcq.courseId = subject.courseId;
+    }
+
+    /**
+     * 🔹 Handle TAG update (independent)
+     */
+    if (tagId && tagId !== mcq.tagId.toString()) {
+      const tag = await Tag.findById(tagId);
+      if (!tag) {
+        return res.status(404).json({
+          success: false,
+          message: 'Tag not found',
+        });
+      }
+
+      const chapterToCheck = chapterId || mcq.chapterId.toString();
+
+      if (tag.chapterId.toString() !== chapterToCheck) {
+        return res.status(400).json({
+          success: false,
+          message: 'Tag does not belong to this chapter',
+        });
+      }
+
+      mcq.tagId = tagId;
     }
 
     /**
@@ -270,7 +333,6 @@ export const updateMCQ = async (req, res, next) => {
     if (status !== undefined) mcq.status = status;
 
     mcq.updatedBy = req.admin._id;
-
     await mcq.save();
 
     res.status(200).json({

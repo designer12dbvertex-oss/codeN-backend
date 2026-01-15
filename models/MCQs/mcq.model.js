@@ -33,6 +33,13 @@ const mcqSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    tagId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Tag',
+      required: true,
+      index: true,
+    },
+
     options: {
       type: [String],
       required: true,
