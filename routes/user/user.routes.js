@@ -11,34 +11,44 @@ import {
   resendOtp,
   verifyEmail,
 } from '../../controllers/user/userController.js';
+
 import uploadProfile from '../../middleware/uploaduserProfile.js';
 import { protect } from '../../middleware/authMiddleware.js';
+import { authLimiter } from '../../middleware/limiter.js';
 
 const userRouter = express.Router();
 
-/*register by google */
-userRouter.post('/google-login', loginByGoogle);
+/* ================= AUTH ================= */
 
-/*register mannual */
-userRouter.post('/verify-email', verifyEmail);
-userRouter.post('/resend-otp', resendOtp);
-userRouter.post('/register', register);
-userRouter.post('/login', login);
+// Google login
+userRouter.post('/auth/google', authLimiter, loginByGoogle);
 
-/*  user details api */
+// Email registration flow
+userRouter.post('/auth/register', authLimiter, register);
+userRouter.post('/auth/verify-email', authLimiter, verifyEmail);
+userRouter.post('/auth/resend-otp', authLimiter, resendOtp);
+userRouter.post('/auth/login', authLimiter, login);
+
+// Password recovery
+userRouter.post('/auth/forgot-password', authLimiter, forgetPassword);
+userRouter.post('/auth/change-password', authLimiter, changePassword);
+
+/* ================= USER ================= */
+
+// Edit profile
 userRouter.patch(
-  '/edit',
+  '/profile',
   protect,
   uploadProfile.single('image'),
   editProfileOfUser
 );
-userRouter.get('/:id', protect, getUserData);
 
-/*forgot password */
-userRouter.post('/forget-password', forgetPassword);
-userRouter.post('/change-password', changePassword);
+// Get logged-in user data (secure)
+userRouter.get('/profile/:id', protect, getUserData);
 
-/* get slug api privacy policy term condition about us */
+/* ================= CMS / STATIC ================= */
+
+// Slug pages (privacy, terms, about)
 userRouter.get('/slug', getSlugByQuery);
 
 export default userRouter;

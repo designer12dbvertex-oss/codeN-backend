@@ -32,6 +32,13 @@ import {
   deleteCollege,
 } from '../../controllers/admin/college.controller.js';
 
+import {
+  createClass,
+  getAllClasses,
+  updateClass,
+  deleteClass,
+} from '../../controllers/admin/Class/class.controller.js';
+
 const router = express.Router();
 
 /* COUNTRY */
@@ -61,5 +68,11 @@ router.get('/college', getColleges);
 router.get('/college/:id', getCollegeById);
 router.put('/college/:id', updateCollege);
 router.delete('/college/:id', deleteCollege);
+
+// Class
+router.post('/class', createClass); // CREATE
+router.get('/class', getAllClasses); // READ
+router.put('/class/:id', updateClass); // UPDATE
+router.delete('/class/:id', deleteClass); // DELETE
 
 export default router;

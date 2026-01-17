@@ -55,6 +55,16 @@ const userSchema = new mongoose.Schema(
       ref: 'college',
       default: null,
     },
+    classId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Class',
+      default: null,
+    },
+
+    passingYear: {
+      type: String,
+      default: null,
+    },
 
     password: {
       type: String,

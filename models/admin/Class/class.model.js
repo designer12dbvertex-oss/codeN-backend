@@ -1,12 +1,12 @@
 import mongoose from 'mongoose';
 
-const classSchema = new mongoose.Schema(
+const ClassSchema = new mongoose.Schema(
   {
     name: {
       type: String,
-      required: true, // e.g. "12th"
-      unique: true,
+      required: true,
       trim: true,
+      lowercase: true, // "12th" === "12TH"
     },
 
     status: {
@@ -18,5 +18,8 @@ const classSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-const ClassModel = mongoose.model('Class', classSchema);
+// ✅ Prevent duplicate classes
+ClassSchema.index({ name: 1 }, { unique: true });
+
+const ClassModel = mongoose.model('Class', ClassSchema);
 export default ClassModel;

@@ -8,40 +8,70 @@ export const loginByGoogle = async (req, res, next) => {
   try {
     const { access_token } = req.body;
 
+    // ✅ Validate token
+    if (!access_token) {
+      return res.status(400).json({
+        message: 'Google access token is required',
+      });
+    }
+
     const googleRes = await fetch(
-      `https://www.googleapis.com/oauth2/v3/userinfo`,
+      'https://www.googleapis.com/oauth2/v3/userinfo',
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
         },
       }
     );
+
     if (!googleRes.ok) {
-      return res.status(401).json({ message: 'Invalid Google token' });
-    }
-    const profile = await googleRes.json();
-    if (!profile) {
-      return res.status(400).json({ message: 'Invalid Google token' });
+      return res.status(401).json({
+        message: 'Invalid Google token',
+      });
     }
 
-    let user = await UserModel.findOne({ email: profile?.email });
+    const profile = await googleRes.json();
+
+    // ✅ Normalize & validate email
+    const email = profile.email?.toLowerCase().trim();
+    if (!email) {
+      return res.status(400).json({
+        message: 'Google account email not available',
+      });
+    }
+
+    let user = await UserModel.findOne({ email });
+
     if (!user) {
       user = await UserModel.create({
         name: profile.name,
-        email: profile.email,
+        email,
         signUpBy: 'google',
         isEmailVerified: true,
       });
     }
-    const token = await generateToken(user?._id);
+
+    // ✅ Blocked / inactive check (VERY IMPORTANT)
+    if (user.status !== 'active') {
+      return res.status(403).json({
+        message: 'Account is blocked or inactive',
+      });
+    }
+
+    const token = await generateToken(user._id);
+
+    // ✅ Safe user object
     const safeUser = user.toObject();
     delete safeUser.password;
     delete safeUser.otp;
     delete safeUser.otpExpiresAt;
 
-    res.json({ token, user: safeUser });
-  } catch (err) {
-    next(err);
+    return res.status(200).json({
+      token,
+      user: safeUser,
+    });
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -60,6 +90,7 @@ export const register = async (req, res, next) => {
       stateId,
       cityId,
       collegeId,
+      classId,
       admissionYear,
       password,
     } = req.body;
@@ -97,6 +128,7 @@ export const register = async (req, res, next) => {
       stateId,
       cityId,
       collegeId,
+      classId,
       admissionYear,
       signUpBy: 'email',
     });
@@ -477,6 +509,8 @@ export const editProfileOfUser = async (req, res, next) => {
       'stateId',
       'cityId',
       'collegeId',
+      'classId',
+      'passingYear',
       'admissionYear',
     ];
 
