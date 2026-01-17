@@ -1,8 +1,7 @@
-import Topic from '../../models/Topic/topic.model.js';
+import Topic from '../../../models/admin/Topic/topic.model.js';
 
 export const createTopic = async (req, res) => {
-    console.log("Body Received:", req.body); // Check karein topicId yahan hai ya nahi
-  console.log("Topic ID:", req.body.topicId);
+
   try {
     const topic = await Topic.create({ ...req.body, createdBy: req.admin._id });
     res.status(201).json({ success: true, data: topic });

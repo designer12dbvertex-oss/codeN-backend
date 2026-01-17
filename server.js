@@ -21,7 +21,7 @@ import Terms from './routes/admin/Terms$Condition/termRoute.js';
 import PrivacyRoutes from './routes/admin/PrivacyPolicy/privacy.routes.js';
 import subscriptionRoutes from './routes/admin/Subscription/subscription.routes.js';
 import videoRoutes from './routes/admin/Video/video.routes.js';
-import Topic from './routes/Topic/topic.js';
+import Topic from './routes/admin/Topic/topic.js';
 import cors from 'cors';
 
 // Environment variables load karo

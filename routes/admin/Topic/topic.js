@@ -1,7 +1,7 @@
 import express from 'express';
-import { createTopic, getTopicsByChapter,getAllTopics  } from '../../controllers/Topic/topic.controller.js';
-import { protect } from '../../middleware/authMiddleware.js';
-import { authorize } from '../../middleware/Authorization.middleware.js';
+import { createTopic, getTopicsByChapter,getAllTopics  } from '../../../controllers/admin/Topic/topic.controller.js';
+import { protect } from '../../../middleware/authMiddleware.js';
+import { authorize } from '../../../middleware/Authorization.middleware.js';
 
 const router = express.Router();
 
