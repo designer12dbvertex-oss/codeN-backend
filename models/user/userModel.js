@@ -83,6 +83,11 @@ const userSchema = new mongoose.Schema(
       enum: ['active', 'inactive', 'blocked'],
       default: 'active',
     },
+    role: {
+      type: String,
+      enum: ['user', 'admin'],
+      default: 'user',
+    },
 
     signUpBy: {
       type: String,

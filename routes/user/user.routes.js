@@ -21,17 +21,17 @@ const userRouter = express.Router();
 /* ================= AUTH ================= */
 
 // Google login
-userRouter.post('/auth/google', authLimiter, loginByGoogle);
+userRouter.post('/google', authLimiter, loginByGoogle);
 
 // Email registration flow
-userRouter.post('/auth/register', authLimiter, register);
-userRouter.post('/auth/verify-email', authLimiter, verifyEmail);
-userRouter.post('/auth/resend-otp', authLimiter, resendOtp);
-userRouter.post('/auth/login', authLimiter, login);
+userRouter.post('/register', authLimiter, register);
+userRouter.post('/verify-email', authLimiter, verifyEmail);
+userRouter.post('/resend-otp', authLimiter, resendOtp);
+userRouter.post('/login', authLimiter, login);
 
 // Password recovery
-userRouter.post('/auth/forgot-password', authLimiter, forgetPassword);
-userRouter.post('/auth/change-password', authLimiter, changePassword);
+userRouter.post('/forgot-password', authLimiter, forgetPassword);
+userRouter.post('/change-password', authLimiter, changePassword);
 
 /* ================= USER ================= */
 

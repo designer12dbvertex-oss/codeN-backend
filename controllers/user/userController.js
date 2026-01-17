@@ -1,8 +1,14 @@
 import bcrypt from 'bcryptjs';
+import fetch from 'node-fetch';
 import UserModel from '../../models/user/userModel.js';
 import { sendFormEmail } from '../../config/mail.js';
 import PageModel from '../../models/admin/pageModel.js';
 import generateToken from '../../config/generateToken.js';
+import Country from '../../models/admin/country.model.js';
+import State from '../../models/admin/state.model.js';
+import City from '../../models/admin/city.model.js';
+import College from '../../models/admin/college.model.js';
+import ClassModel from '../../models/admin/Class/class.model.js';
 
 export const loginByGoogle = async (req, res, next) => {
   try {
@@ -48,6 +54,7 @@ export const loginByGoogle = async (req, res, next) => {
         email,
         signUpBy: 'google',
         isEmailVerified: true,
+        role: 'user',
       });
     }
 
@@ -93,22 +100,55 @@ export const register = async (req, res, next) => {
       classId,
       admissionYear,
       password,
+
     } = req.body;
 
-    // ✅ ADD: basic validation
+    // ✅ BASIC VALIDATION
     if (!name || !email || !password) {
       return res.status(400).json({
         message: 'Name, email and password are required',
       });
     }
 
+    // ✅ LOCATION & CLASS VALIDATION (THIS WAS MISSING PLACE)
+    if (!(await Country.findById(countryId))) {
+      return res.status(400).json({ message: 'Invalid country' });
+    }
+
+    if (!(await State.findOne({ _id: stateId, countryId }))) {
+      return res.status(400).json({ message: 'Invalid state' });
+    }
+
+    if (!(await City.findOne({ _id: cityId, stateId, countryId }))) {
+      return res.status(400).json({ message: 'Invalid city' });
+    }
+
+    if (
+      !(await College.findOne({
+        _id: collegeId,
+        cityId,
+        stateId,
+        countryId,
+      }))
+    ) {
+      return res.status(400).json({ message: 'Invalid college' });
+    }
+
+    if (!(await ClassModel.findById(classId))) {
+      return res.status(400).json({ message: 'Invalid class' });
+    }
+
+    // ✅ PASSWORD VALIDATION
     if (password.length < 6) {
       return res.status(400).json({
         message: 'Password must be at least 6 characters',
       });
     }
 
-    const existingUser = await UserModel.findOne({ email });
+    const existingUser = await UserModel.findOne({
+      email: email.toLowerCase().trim(),
+    });
+
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists' });
     }
@@ -118,10 +158,10 @@ export const register = async (req, res, next) => {
 
     await UserModel.create({
       name,
-      email,
+      email: email.toLowerCase().trim(),
+      password: hashedPassword,
       otp,
       otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      password: hashedPassword,
       mobile,
       address,
       countryId,
@@ -131,12 +171,12 @@ export const register = async (req, res, next) => {
       classId,
       admissionYear,
       signUpBy: 'email',
+      role: 'user',
     });
 
     await sendFormEmail(email, otp);
 
-    // ✅ REMOVE user object from response
-    res.status(201).json({
+    return res.status(201).json({
       message: 'User registered successfully. Please verify your email.',
     });
   } catch (error) {
@@ -147,6 +187,7 @@ export const register = async (req, res, next) => {
 export const verifyEmail = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
     // ✅ basic validation
     if (!email || !otp) {
@@ -155,7 +196,7 @@ export const verifyEmail = async (req, res, next) => {
       });
     }
 
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -215,6 +256,7 @@ export const verifyEmail = async (req, res, next) => {
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
     // ✅ ADD: basic validation
     if (!email || !password) {
@@ -224,7 +266,9 @@ export const login = async (req, res, next) => {
     }
 
     // ✅ Ensure password is selected
-    const user = await UserModel.findOne({ email }).select('+password');
+    const user = await UserModel.findOne({ email: normalizedEmail }).select(
+      '+password'
+    );
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -265,6 +309,7 @@ export const login = async (req, res, next) => {
 export const resendOtp = async (req, res, next) => {
   try {
     const { email } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
     // ✅ ADD: basic validation
     if (!email) {
@@ -273,9 +318,11 @@ export const resendOtp = async (req, res, next) => {
       });
     }
 
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ email: normalizedEmail });
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res
+        .status(200)
+        .json({ message: 'If this email exists, an OTP has been sent' });
     }
 
     if (user.isEmailVerified) {
@@ -310,6 +357,7 @@ export const resendOtp = async (req, res, next) => {
 export const forgetPassword = async (req, res, next) => {
   try {
     const { email } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
     // ✅ ADD: input validation
     if (!email) {
@@ -318,7 +366,7 @@ export const forgetPassword = async (req, res, next) => {
       });
     }
 
-    const user = await UserModel.findOne({ email });
+    const user = await UserModel.findOne({ email: normalizedEmail });
 
     // ✅ ADD: generic response (anti user-enumeration)
     if (!user) {
@@ -362,6 +410,7 @@ export const forgetPassword = async (req, res, next) => {
 export const changePassword = async (req, res, next) => {
   try {
     const { email, otp, newPassword } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
 
     // ✅ ADD: input validation
     if (!email || !otp || !newPassword) {
@@ -376,12 +425,20 @@ export const changePassword = async (req, res, next) => {
       });
     }
 
-    const user = await UserModel.findOne({ email }).select('+password');
+    const user = await UserModel.findOne({ email: normalizedEmail }).select(
+      '+password'
+    );
 
     // ✅ ADD: generic response
     if (!user) {
       return res.status(400).json({
         message: 'Invalid OTP or request expired',
+      });
+    }
+
+    if (user.status !== 'active') {
+      return res.status(403).json({
+        message: 'Account is blocked or inactive',
       });
     }
 
@@ -535,6 +592,46 @@ export const editProfileOfUser = async (req, res, next) => {
       });
     }
 
+    // ✅ LOCATION VALIDATION (PRODUCTION CRITICAL)
+    const { countryId, stateId, cityId } = updateData;
+
+    if (countryId && stateId && cityId) {
+      const validCity = await City.findOne({
+        _id: cityId,
+        stateId,
+        countryId,
+      });
+
+      if (!validCity) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid country, state, city combination',
+        });
+      }
+    }
+    // ✅ COLLEGE VALIDATION
+    if (updateData.collegeId) {
+      const validCollege = await College.findById(updateData.collegeId);
+      if (!validCollege) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid college',
+        });
+      }
+    }
+
+    // ✅ CLASS VALIDATION
+    if (updateData.classId) {
+      const validClass = await ClassModel.findById(updateData.classId);
+      if (!validClass) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid class',
+        });
+      }
+    }
+
+    // ✅ UPDATE USER
     const updatedUser = await UserModel.findByIdAndUpdate(
       req.user._id,
       updateData,
