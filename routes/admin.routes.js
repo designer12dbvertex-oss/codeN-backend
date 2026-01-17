@@ -9,6 +9,7 @@ import {
 } from '../controllers/admin.controller.js';
 import upload from '../middleware/upload.js';
 import { protect } from '../middleware/authMiddleware.js';
+import uploadProfile from '../middleware/uploadAdminProfile.js';
 
 const router = express.Router();
 

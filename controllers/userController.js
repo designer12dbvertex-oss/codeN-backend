@@ -34,8 +34,8 @@ export const loginByGoogle = async (req, res, next) => {
 
 
 
-const generateOtp = () =>{}
-    Math.floor(100000 + Math.random() * 900000).toString();
+const generateOtp = () => { }
+Math.floor(100000 + Math.random() * 900000).toString();
 
 export const register = async (req, res, next) => {
     try {
@@ -146,7 +146,7 @@ export const resendOtp = async (req, res, next) => {
 };
 
 
-export const forgetPassword = async (req ,res,next) => {
+export const forgetPassword = async (req, res, next) => {
     const { email } = req.body;
 
     try {
@@ -163,7 +163,7 @@ export const forgetPassword = async (req ,res,next) => {
 
         res.status(200).json({ message: 'Email sent successfully' });
     } catch (error) {
-       next(error)
+        next(error)
     }
 };
 
@@ -191,7 +191,7 @@ export const changePassword = async (req, res, next) => {
 
         res.status(200).json({ message: 'Password changed successfully' });
     } catch (error) {
-        next(error); 
+        next(error);
     }
 };
 
@@ -224,3 +224,53 @@ export const getSlugByQuery = async (req, res, next) => {
     }
 };
 
+export const getUserData = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const userData = await UserModel.findById(id);
+
+    if (!userData) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: userData,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const editProfileOfUser = async (req, res, next) => {
+  try {
+    const updateData = req.body;
+    if (req?.file) {
+      updateData.profileImage = req.file.path;
+    }
+
+    const updatedUser = await UserModel.findByIdAndUpdate(
+      req.body._id,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
