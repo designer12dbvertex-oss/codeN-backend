@@ -3,7 +3,7 @@ import path from 'path';
 import fs from 'fs';
 
 // ensure directory exists
-const uploadDir = 'uploads/profile';
+const uploadDir = 'uploads/user-profile';
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -16,7 +16,7 @@ const storage = multer.diskStorage({
 
   filename(req, file, cb) {
     const ext = path.extname(file.originalname);
-    const uniqueName = `${req.admin._id}-${Date.now()}${ext}`;
+    const uniqueName = `${req.user._id}-${Date.now()}${ext}`;
     cb(null, uniqueName);
   },
 });

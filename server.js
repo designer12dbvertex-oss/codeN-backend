@@ -14,6 +14,7 @@ import mcqRoutes from './routes/MCQs/mcq.routes.js';
 import bookmarkRoutes from './routes/bookmark.routes.js';
 import adminTestRoutes from './routes/admin/testRoutes.js';
 import userTestRoutes from './routes/user/testRoutes.js';
+import userRoutes from './routes/user.routes.js';
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import AboutUs from './routes/AboutUs/about.Routes.js';
 import Terms from './routes/Terms$Condition/termRoute.js';
@@ -52,7 +53,7 @@ app.use('/api/admin/tags', tagRoutes);
 app.use('/api/admin/mcqs', mcqRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/admin/tests', adminTestRoutes);
-
+app.use('/api/users', userRoutes);
 app.use('/api/admin', AboutUs);
 app.use('/api/admin/terms', Terms);
 app.use('/api/tests', userTestRoutes);

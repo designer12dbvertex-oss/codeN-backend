@@ -12,10 +12,11 @@ const userSchema = new mongoose.Schema(
       type: String,
       trim: true,
       lowercase: true,
+      unique: true,
       default: null,
     },
 
-    image: {
+    profileImage: {
       type: String,
       trim: true,
       default: null,
@@ -38,6 +39,10 @@ const userSchema = new mongoose.Schema(
       ref: 'country',
       default: null,
     },
+    stateId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'State',
+    },
 
     cityId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -53,6 +58,7 @@ const userSchema = new mongoose.Schema(
 
     password: {
       type: String,
+      select: false,
       default: null,
     },
 
