@@ -20,6 +20,7 @@ import Terms from './routes/Terms$Condition/termRoute.js';
 import PrivacyRoutes from './routes/PrivacyPolicy/privacy.routes.js';
 import subscriptionRoutes from './routes/Subscription/subscription.routes.js';
 import videoRoutes from './routes/Video/video.routes.js';
+import Topic from './routes/Topic/topic.js'
 
 import cors from 'cors';
 
@@ -48,6 +49,7 @@ app.use('/api/admin/courses', courseRoutes);
 app.use('/api/admin/subjects', subjectRoutes);
 app.use('/api/admin/sub-subjects', subSubjectRoutes);
 app.use('/api/admin/chapters', chapterRoutes);
+app.use('/api/admin/topics', Topic);
 app.use('/api/admin/tags', tagRoutes);
 app.use('/api/admin/mcqs', mcqRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);

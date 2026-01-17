@@ -28,6 +28,7 @@ const chapterSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    targetMcqs: { type: Number, default: 50 },
     isFreePreview: {
       type: Boolean,
       default: false,
