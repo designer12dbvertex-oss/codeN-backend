@@ -1,3 +1,51 @@
+// import express from 'express';
+// import { protect } from '../../../middleware/authMiddleware.js';
+// import { authorize } from '../../../middleware/Authorization.middleware.js';
+// import {
+//   createCourse,
+//   getAllCourses,
+//   getCourseById,
+//   updateCourse,
+//   deleteCourse,
+//   toggleCourseStatus,
+//   publishCourse,
+//   unpublishCourse,
+// } from '../../../controllers/admin/Course/course.controller.js';
+
+// const router = express.Router();
+
+// // All routes are protected and require admin role
+// router.use(protect);
+// router.use(authorize('admin'));
+
+// // Create course
+// router.post('/', createCourse);
+
+// // Get all courses
+// router.get('/', getAllCourses);
+
+// // Get single course
+// router.get('/:id', getCourseById);
+
+// // Update course
+// router.patch('/:id', updateCourse);
+
+// // Delete course (soft delete)
+// router.delete('/:id', deleteCourse);
+
+// // Toggle course status (enable/disable)
+// router.patch('/:id/status', toggleCourseStatus);
+
+// // Publish course
+// router.patch('/:id/publish', publishCourse);
+
+// // Unpublish course
+// router.patch('/:id/unpublish', unpublishCourse);
+
+// export default router;
+
+
+
 import express from 'express';
 import { protect } from '../../../middleware/authMiddleware.js';
 import { authorize } from '../../../middleware/Authorization.middleware.js';
@@ -14,32 +62,193 @@ import {
 
 const router = express.Router();
 
-// All routes are protected and require admin role
+/**
+ * @swagger
+ * tags:
+ *   name: Admin Course Management
+ *   description: APIs for Managing Courses (Medical, Engineering, etc.)
+ */
+
+// Sabhi routes protected hain aur sirf admin access kar sakta hai
 router.use(protect);
 router.use(authorize('admin'));
 
-// Create course
+/**
+ * @swagger
+ * /api/admin/courses:
+ *   post:
+ *     summary: Create a new course
+ *     tags: [Admin Course Management]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "NEET Preparation 2024"
+ *               description:
+ *                 type: string
+ *               price:
+ *                 type: number
+ *               duration:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Course created successfully
+ */
 router.post('/', createCourse);
 
-// Get all courses
+/**
+ * @swagger
+ * /api/admin/courses:
+ *   get:
+ *     summary: Get all courses
+ *     tags: [Admin Course Management]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of all courses fetched successfully
+ */
 router.get('/', getAllCourses);
 
-// Get single course
+/**
+ * @swagger
+ * /api/admin/courses/{id}:
+ *   get:
+ *     summary: Get a single course by ID
+ *     tags: [Admin Course Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Course details fetched successfully
+ *       404:
+ *         description: Course not found
+ */
 router.get('/:id', getCourseById);
 
-// Update course
+/**
+ * @swagger
+ * /api/admin/courses/{id}:
+ *   patch:
+ *     summary: Update course details
+ *     tags: [Admin Course Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Course updated successfully
+ */
 router.patch('/:id', updateCourse);
 
-// Delete course (soft delete)
+/**
+ * @swagger
+ * /api/admin/courses/{id}:
+ *   delete:
+ *     summary: Delete a course (Soft Delete)
+ *     tags: [Admin Course Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Course deleted successfully
+ */
 router.delete('/:id', deleteCourse);
 
-// Toggle course status (enable/disable)
+/**
+ * @swagger
+ * /api/admin/courses/{id}/status:
+ *   patch:
+ *     summary: Toggle course status (Active/Inactive)
+ *     tags: [Admin Course Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Status updated successfully
+ */
 router.patch('/:id/status', toggleCourseStatus);
 
-// Publish course
+/**
+ * @swagger
+ * /api/admin/courses/{id}/publish:
+ *   patch:
+ *     summary: Publish a course to make it live for users
+ *     tags: [Admin Course Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Course published successfully
+ */
 router.patch('/:id/publish', publishCourse);
 
-// Unpublish course
+/**
+ * @swagger
+ * /api/admin/courses/{id}/unpublish:
+ *   patch:
+ *     summary: Unpublish a course to hide it from users
+ *     tags: [Admin Course Management]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Course unpublished successfully
+ */
 router.patch('/:id/unpublish', unpublishCourse);
 
 export default router;

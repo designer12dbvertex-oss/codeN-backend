@@ -18,6 +18,7 @@ import { OAuth2Client } from 'google-auth-library';
 const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 import SubscriptionPlan from '../../models/admin/SubscriptionPlan/scriptionplan.model.js';
 import TransactionModel from '../../models/admin/Transaction/Transaction.js';
+import Rating from "../../models/admin/Rating.js"
 
 // import Course from '../../models/admin/Course/course.model.js';
 
@@ -1092,4 +1093,53 @@ export const getMySubscription = async (req, res) => {
   } catch (error) {
     res.status(500).json({ status: false, message: error.message });
   }
-};
+}
+ export const postRating = async (req, res) => {
+      try {
+        const { rating, review } = req.body;
+        const userId = req.user._id; // Auth middleware se milega
+
+        if (!rating) {
+          return res.status(400).json({ success: false, message: "Rating is required" });
+        }
+
+        const newRating = await Rating.create({
+          userId,
+          rating,
+          review
+        });
+
+        res.status(201).json({
+          success: true,
+          message: "Thank you for your rating!",
+          data: newRating
+        });
+      } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+      }
+    };
+  
+
+  export const getAllSubSubjectsForUser = async (req, res) => {
+    try {
+      const { courseId } = req.query; // Course ke base par filter zaroori hai
+
+      if (!courseId) {
+        return res.status(400).json({ success: false, message: "courseId is required" });
+      }
+
+      // Pure course ke saare active sub-subjects fetch karna
+      const subSubjects = await SubSubject.find({
+        courseId: courseId,
+        status: 'active'
+      }).sort({ order: 1 });
+
+      res.status(200).json({
+        success: true,
+        data: subSubjects
+      });
+    } catch (error) {
+      res.status(500).json({ success: false, message: error.message });
+    }
+  };
+

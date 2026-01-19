@@ -2,6 +2,7 @@ import Admin from '../../models/admin/admin.model.js';
 import generateToken from '../../config/generateToken.js';
 import PageModel from '../../models/admin/pageModel.js';
 import UserModel from '../../models/user/userModel.js';
+import Rating from "../../models/admin/Rating.js"
 
 export const loginAdmin = async (req, res) => {
   try {
@@ -232,5 +233,21 @@ export const getAllUsers = async (req, res) => {
       success: false,
       message: 'Failed to fetch users',
     });
+  }
+};
+
+export const getAllRatings = async (req, res) => {
+  try {
+    const ratings = await Rating.find()
+      .populate('userId', 'name email image') // User ki details fetch karne ke liye
+      .sort({ createdAt: -1 }); // Latest ratings sabse upar
+
+    res.status(200).json({
+      success: true,
+      count: ratings.length,
+      data: ratings
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
