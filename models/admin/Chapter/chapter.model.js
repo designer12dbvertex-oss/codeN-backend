@@ -7,6 +7,14 @@ const chapterSchema = new mongoose.Schema(
       ref: 'SubSubject',
       required: true,
     },
+
+    // ✅ ADD THIS FIELD
+    topicId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Topic',
+      required: true, // har chapter kisi topic ka hona chahiye
+    },
+
     name: {
       type: String,
       required: true,
@@ -53,7 +61,7 @@ const chapterSchema = new mongoose.Schema(
   }
 );
 
-// Index for subSubjectId and name combination
-chapterSchema.index({ subSubjectId: 1, name: 1 }, { unique: true });
+// 🔁 Index update (subSubjectId + topicId + name unique)
+chapterSchema.index({ subSubjectId: 1, topicId: 1, name: 1 }, { unique: true });
 
 export default mongoose.model('Chapter', chapterSchema);

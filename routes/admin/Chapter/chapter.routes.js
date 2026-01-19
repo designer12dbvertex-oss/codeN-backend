@@ -8,31 +8,36 @@ import {
   updateChapter,
   deleteChapter,
   toggleChapterStatus,
+  getChapterBySubSubjectId,
 } from '../../../controllers/admin/Chapter/chapter.controller.js';
+
 import upload from '../../../middleware/upload.js';
 
 const router = express.Router();
 
-// All routes are protected and require admin role
+// 🔐 All routes are protected and require admin role
 router.use(protect);
 router.use(authorize('admin'));
 
-// Create chapter
+// CREATE CHAPTER
 router.post('/', upload.single('image'), createChapter);
 
-// Get all chapters
+// LIST ALL CHAPTERS
 router.get('/', getAllChapters);
 
-// Get single chapter
+// LIST CHAPTERS BY SUB-SUBJECT (+ OPTIONAL TOPIC)
+router.get('/sub-subject/:subSubjectId', getChapterBySubSubjectId);
+
+// GET SINGLE CHAPTER
 router.get('/:id', getChapterById);
 
-// Update chapter
-router.patch('/:id', upload.single('image'), updateChapter);
+// UPDATE CHAPTER
+router.put('/:id', upload.single('image'), updateChapter);
 
-// Delete chapter (soft delete)
+// DELETE CHAPTER (PERMANENT)
 router.delete('/:id', deleteChapter);
 
-// Toggle chapter status (enable/disable)
+// TOGGLE STATUS (ACTIVE / INACTIVE)
 router.patch('/:id/status', toggleChapterStatus);
 
 export default router;

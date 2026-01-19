@@ -13,7 +13,8 @@ import {
   getSubjectsByUser,
   getAllsubjects,
   getSubSubjectsBySubject,
-  getMcqsByChapter, submitTest
+  getMcqsByChapter,
+  submitTest,
 } from '../../controllers/user/userController.js';
 
 import uploadProfile from '../../middleware/uploaduserProfile.js';
@@ -21,9 +22,18 @@ import { protect } from '../../middleware/authMiddleware.js';
 import { authLimiter } from '../../middleware/limiter.js';
 
 import { getAllSubjects } from '../../controllers/admin/Subject/subject.controller.js';
-import {  getSubSubjectsById } from '../../controllers/admin/Sub-subject/subSubject.controller.js';
+import { getSubSubjectsById } from '../../controllers/admin/Sub-subject/subSubject.controller.js';
 import { getChapterBySubSubjectId } from '../../controllers/admin/Chapter/chapter.controller.js';
-import { getChapterVideoByChapterId, getVideoData } from '../../controllers/admin/Video/video.controller.js';
+import {
+  getChapterVideoByChapterId,
+  getVideoData,
+} from '../../controllers/admin/Video/video.controller.js';
+import {
+  getAllTopicsForUser,
+  getTopicsByChapterForUser,
+  getSingleTopicForUser,
+  getTopicsWithChaptersForUser,
+} from '../../controllers/user/userController.js';
 const userRouter = express.Router();
 
 /* ================= AUTH ================= */
@@ -67,16 +77,23 @@ userRouter.get('/profile/:id', protect, getUserData);
 // Slug pages (privacy, terms, about)
 userRouter.get('/slug', getSlugByQuery);
 
-
 userRouter.get('/get-subjects', getSubjectsByUser);
 userRouter.get('/get-all-subjects', getAllsubjects);
 
 userRouter.get('/get-sub-subjects', getSubSubjectsBySubject);
 
+/* ================= TOPIC (USER) ================= */
+userRouter.get(
+  '/topics-with-chapters/sub-subject/:subSubjectId',
+  getTopicsWithChaptersForUser
+);
+userRouter.get('/topics', getAllTopicsForUser);
+userRouter.get('/topics/chapter/:chapterId', getTopicsByChapterForUser);
+userRouter.get('/topics/:id', getSingleTopicForUser);
+
 userRouter.get('/get-mcqs', getMcqsByChapter);
 userRouter.post('/submit-test', submitTest);
 
 userRouter.get('/:id', protect, getUserData);
-
 
 export default userRouter;

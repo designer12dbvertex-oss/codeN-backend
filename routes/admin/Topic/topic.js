@@ -1,19 +1,42 @@
 import express from 'express';
-import { createTopic, getTopicsByChapter,getAllTopics  } from '../../../controllers/admin/Topic/topic.controller.js';
+import {
+  createTopic,
+  getAllTopics,
+  getTopicById,
+  updateTopic,
+  toggleTopicStatus,
+  deleteTopicPermanently,
+  getTopicsBySubSubject,
+} from '../../../controllers/admin/Topic/topic.controller.js';
+
 import { protect } from '../../../middleware/authMiddleware.js';
 import { authorize } from '../../../middleware/Authorization.middleware.js';
 
 const router = express.Router();
 
-// Sabhi routes ko protect karein taaki sirf admin access kar sake
+// 🔐 Only admin access
 router.use(protect);
 router.use(authorize('admin'));
 
-// Route to create a new topic
+// CREATE TOPIC
 router.post('/', createTopic);
+
+// LIST ALL TOPICS
 router.get('/', getAllTopics);
 
-// Route to get topics for a specific chapter (hierarchy: Chapter -> Topic)
-router.get('/:chapterId', getTopicsByChapter);
+// LIST TOPICS BY SUB-SUBJECT (Marrow Flow)
+router.get('/sub-subject/:subSubjectId', getTopicsBySubSubject);
+
+// GET SINGLE TOPIC
+router.get('/:id', getTopicById);
+
+// UPDATE TOPIC
+router.put('/:id', updateTopic);
+
+// TOGGLE STATUS (ACTIVE / INACTIVE)
+router.patch('/:id/status', toggleTopicStatus);
+
+// DELETE TOPIC (PERMANENT)
+router.delete('/:id', deleteTopicPermanently);
 
 export default router;
