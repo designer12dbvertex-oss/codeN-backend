@@ -14,6 +14,8 @@ import SubSubject from '../../models/admin/Sub-subject/subSubject.model.js';
 import Topic from '../../models/admin/Topic/topic.model.js';
 import Chapter from '../../models/admin/Chapter/chapter.model.js';
 import MCQ from '../../models/admin/MCQs/mcq.model.js';
+import SubscriptionPlan from '../../models/admin/SubscriptionPlan/scriptionplan.model.js';
+import TransactionModel from '../../models/admin/Transaction/Transaction.js';
 
 // import Course from '../../models/admin/Course/course.model.js';
 
@@ -1002,5 +1004,85 @@ export const submitTest = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+// 1. Saare Active Plans Dekhna
+export const getActivePlans = async (req, res, next) => {
+  try {
+    const plans = await SubscriptionPlan.find({ isActive: true });
+    res.status(200).json({ success: true, data: plans });
+  } catch (error) { next(error); }
+};
+
+// 2. Buy Subscription (Final Step after Payment)
+export const buySubscription = async (req, res, next) => {
+  try {
+    const { planId, months, paymentId, orderId } = req.body;
+    const userId = req.user._id;
+
+    // Plan check karein
+    const plan = await SubscriptionPlan.findById(planId);
+    if (!plan) return res.status(404).json({ message: "Plan not found" });
+
+    // Price confirm karein
+    const selectedPricing = plan.pricing.find(p => p.months === Number(months));
+    if (!selectedPricing) return res.status(400).json({ message: "Invalid duration" });
+
+    // Expiry Date calculate karein
+    const startDate = new Date();
+    const endDate = new Date();
+    endDate.setMonth(endDate.getMonth() + Number(months));
+
+    // Status decide karein plan ke name ke hisaab se
+    let status = 'starter';
+    if (plan.name.toLowerCase().includes('pro')) status = 'professional';
+    if (plan.name.toLowerCase().includes('premium')) status = 'premium_plus';
+
+    // USER UPDATE (Aapka model update ho raha hai)
+    await UserModel.findByIdAndUpdate(userId, {
+      subscription: {
+        plan_id: planId,
+        startDate,
+        endDate,
+        isActive: true,
+        selectedMonths: months
+      },
+      subscriptionStatus: status
+    });
+
+    // Transaction save karein
+    await TransactionModel.create({
+  userId, 
+  planId, 
+  razorpay_payment_id: paymentId, 
+  razorpay_order_id: orderId,     
+  amount: selectedPricing.price,
+  months: Number(months)          
+});
+
+    res.status(200).json({
+      success: true,
+      message: "Subscription activated successfully!",
+      expiryDate: endDate
+    });
+  } catch (error) { next(error); }
+};
+export const getMySubscription = async (req, res) => {
+  try {
+    const user_id = req.user._id;
+    const user = await UserModel.findById(user_id)
+      .select('subscription subscriptionStatus')
+      .populate('subscription.plan_id', 'name features');
+
+    if (!user.subscription || !user.subscription.isActive) {
+      return res.status(200).json({ status: true, message: "No active subscription found", data: null });
+    }
+
+    res.status(200).json({ status: true, data: user });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
   }
 };
