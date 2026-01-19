@@ -12,17 +12,13 @@ import UserModel from '../models/user/userModel.js';
 export const protect = async (req, res, next) => {
   let token;
 
-if (
-  (req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')) ||
-  req.headers['x-auth-token']
-) {
-  try {
-    token = req.headers.authorization
-      ? req.headers.authorization.split(' ')[1]
-      : req.headers['x-auth-token'];
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
 
-      
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
       // 🔹 Pehle ADMIN me check karo

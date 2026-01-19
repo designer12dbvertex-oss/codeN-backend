@@ -2,13 +2,10 @@ import express from 'express';
 import {
   addSlug,
   loginAdmin,
-} from '../../controllers/admin/admin.controller.js';
-// import { validateAdminToken } from '../middleware/adminToken.middleware.js';
-
-import {
   getAdminProfile,
   updateAdminProfile,
   changeAdminPassword,
+  getAllUsers,
 } from '../../controllers/admin/admin.controller.js';
 import upload from '../../middleware/upload.js';
 import { protect } from '../../middleware/authMiddleware.js';
@@ -28,7 +25,8 @@ router.put(
   upload.single('profileImage'),
   updateAdminProfile
 );
-
+// 👇 existing routes ke neeche add karo
+router.get('/users', protect, getAllUsers);
 // Change admin password
 router.put('/change-password', protect, changeAdminPassword);
 

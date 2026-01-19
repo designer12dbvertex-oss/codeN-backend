@@ -1,6 +1,7 @@
 import Admin from '../../models/admin/admin.model.js';
 import generateToken from '../../config/generateToken.js';
 import PageModel from '../../models/admin/pageModel.js';
+import UserModel from '../../models/user/userModel.js';
 
 export const loginAdmin = async (req, res) => {
   try {
@@ -201,5 +202,35 @@ export const addSlug = async (req, res, next) => {
     });
   } catch (error) {
     next(error);
+  }
+};
+
+// ───────────────────────────────────────────────
+// GET ALL USERS (ADMIN PANEL)
+// ───────────────────────────────────────────────
+export const getAllUsers = async (req, res) => {
+  try {
+    // Sirf admin allowed
+    if (!req.admin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access only',
+      });
+    }
+
+    const users = await UserModel.find()
+      .select('-password -otp -otpExpiresAt')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      data: users,
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch users',
+    });
   }
 };
