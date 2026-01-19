@@ -125,7 +125,7 @@ import PrivacyRoutes from './routes/admin/PrivacyPolicy/privacy.routes.js';
 import subscriptionRoutes from './routes/admin/Subscription/subscription.routes.js';
 import videoRoutes from './routes/admin/Video/video.routes.js';
 import Topic from './routes/admin/Topic/topic.js';
-import cors from 'cors';
+
 
 // Middleware Imports
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';

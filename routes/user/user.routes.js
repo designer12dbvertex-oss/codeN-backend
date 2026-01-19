@@ -39,14 +39,9 @@ import {
   getTopicsWithChaptersForUser,
 } from '../../controllers/user/userController.js';
 
-import uploadProfile from '../../middleware/uploaduserProfile.js';
-import { protect } from '../../middleware/authMiddleware.js';
 import { testLimiter, otpLimiter } from '../../middleware/limiter.js';
 
-import {
-  getChapterVideoByChapterId,
-  getVideoData,
-} from '../../controllers/admin/Video/video.controller.js';
+
 
 const userRouter = express.Router();
 
