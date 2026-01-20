@@ -212,13 +212,12 @@ app.use('/api/admin/tests', adminTestRoutes);
 app.use('/api/admin/terms', Terms);
 app.use('/api/admin/privacy', PrivacyRoutes);
 app.use('/api/admin/videos', videoRoutes);
-app.use('/api/admin/list',PaymentList )
+app.use('/api/admin', PaymentList);
 
 // Shared/Other Routes
 app.use('/api/location', locationRoutes);
 app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/plans', subscriptionRoutes);
-
 
 // User Specific Routes
 app.use('/api/users', userRoutes);
