@@ -1,3 +1,125 @@
+// import express from 'express';
+// import {
+//   changePassword,
+//   editProfileOfUser,
+//   forgetPassword,
+//   getSlugByQuery,
+//   getUserData,
+//   login,
+//   loginByGoogle,
+//   register,
+//   resendOtp,
+//   verifyEmail,
+//   getSubjectsByUser,
+//   getAllsubjects,
+//   getSubSubjectsBySubject,
+//   getMcqsByChapter,
+//   submitTest,
+//   getActivePlans,
+//   getMySubscription,
+//   buySubscription,
+//   postRating,
+//   getAllSubSubjectsForUser,
+// } from '../../controllers/user/userController.js';
+// import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
+// import { getPrivacyPolicy } from '../../controllers/admin/PrivacyPolicy/privacy.controller.js';
+// import { getTerms } from '../../controllers/admin/Terms&Condition/terms.controller.js';
+// import { getChapterBySubSubjectId } from '../../controllers/admin/Chapter/chapter.controller.js';
+
+// import uploadProfile from '../../middleware/uploaduserProfile.js';
+// import { protect } from '../../middleware/authMiddleware.js';
+
+// import {
+//   getChapterVideoByChapterId,
+//   getVideoData,
+// } from '../../controllers/admin/Video/video.controller.js';
+// import {
+//   getAllTopicsForUser,
+//   getTopicsByChapterForUser,
+//   getSingleTopicForUser,
+//   getTopicsWithChaptersForUser,
+// } from '../../controllers/user/userController.js';
+
+// import { testLimiter, otpLimiter } from '../../middleware/limiter.js';
+
+
+
+// const userRouter = express.Router();
+
+// /* ================= AUTH ================= */
+
+// // Google login
+// userRouter.post('/google', otpLimiter, loginByGoogle);
+
+// // Email registration flow
+// userRouter.post('/register', otpLimiter, register);
+// userRouter.post('/verify-email', otpLimiter, verifyEmail);
+// userRouter.post('/resend-otp', otpLimiter, resendOtp);
+// userRouter.post('/login', otpLimiter, login);
+
+// // Password recovery
+// userRouter.post('/forgot-password', otpLimiter, forgetPassword);
+// userRouter.post('/change-password', otpLimiter, changePassword);
+
+// /* ================= USER ================= */
+
+// // Video APIs
+// userRouter.get('/video/:videoId', getVideoData);
+// userRouter.get('/chapter/:chapterId/video', getChapterVideoByChapterId);
+
+// // Profile update
+// userRouter.patch(
+//   '/profile',
+//   protect,
+//   uploadProfile.single('image'),
+//   editProfileOfUser
+// );
+
+// // Get logged-in user data (secure)
+
+// /* ================= CMS / STATIC ================= */
+
+// // Slug pages (privacy, terms, about)
+// userRouter.get('/slug', getSlugByQuery);
+
+// /* ================= SUBJECT / SUB-SUBJECT ================= */
+
+// userRouter.get('/subjects', getSubjectsByUser);
+// userRouter.get('/get-all-subjects', getAllsubjects);
+// userRouter.get('/get-sub-subjects', getSubSubjectsBySubject);
+
+// /* ================= TOPIC / CHAPTER ================= */
+
+// userRouter.get(
+//   '/topics-with-chapters/sub-subject/:subSubjectId',
+//   getTopicsWithChaptersForUser
+// );
+
+// userRouter.get('/topics', getAllTopicsForUser);
+// userRouter.get('/topics/chapter/:chapterId', getTopicsByChapterForUser);
+// userRouter.get('/topics/:id', getSingleTopicForUser);
+// userRouter.get("/get-chapters/:subSubjectId", getChapterBySubSubjectId);
+
+
+
+// /* ================= MCQ / TEST ================= */
+
+// userRouter.get('/get-mcqs', getMcqsByChapter);
+// userRouter.post('/submit-test', testLimiter, submitTest);
+
+// userRouter.get('/get-plans', getActivePlans);
+// userRouter.get('/my-subscription', protect, getMySubscription);
+// userRouter.post('/buy-plan', protect, buySubscription);
+// userRouter.get('/about-us', getAboutUs);
+// userRouter.get('/privacy-policy', getPrivacyPolicy);
+// userRouter.get('/terms-conditions', getTerms);
+// userRouter.get('/:id', protect, getUserData);
+// userRouter.get('/profile/:id', protect, getUserData);
+
+// export default userRouter;
+
+
+
 import express from 'express';
 import {
   changePassword,
@@ -19,8 +141,8 @@ import {
   getMySubscription,
   buySubscription,
   postRating,
-  getAllSubSubjectsForUser,
 } from '../../controllers/user/userController.js';
+
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
 import { getPrivacyPolicy } from '../../controllers/admin/PrivacyPolicy/privacy.controller.js';
 import { getTerms } from '../../controllers/admin/Terms&Condition/terms.controller.js';
@@ -33,6 +155,7 @@ import {
   getChapterVideoByChapterId,
   getVideoData,
 } from '../../controllers/admin/Video/video.controller.js';
+
 import {
   getAllTopicsForUser,
   getTopicsByChapterForUser,
@@ -56,7 +179,24 @@ import { testLimiter, otpLimiter } from '../../middleware/limiter.js';
 
 const userRouter = express.Router();
 
-/* ================= AUTH ================= */
+/**
+ * @swagger
+ * tags:
+ *   - name: User Authentication
+ *     description: Registration, Login, and Password management
+ *   - name: User Profile
+ *     description: User details and profile updates
+ *   - name: Educational Content
+ *     description: Subjects, Sub-subjects, Topics, and Chapters
+ *   - name: MCQs & Tests
+ *     description: Practice questions and test submissions
+ *   - name: Videos
+ *     description: Video lectures and related data
+ *   - name: Subscription & Plans
+ *     description: Management of user plans and purchases
+ *   - name: CMS & Settings
+ *     description: About us, Privacy, and Terms
+ */
 
 // Google login
 /**
@@ -189,7 +329,6 @@ userRouter.post('/resend-otp', otpLimiter, resendOtp);
 
 userRouter.post('/login', login);
 
-// Password recovery
 userRouter.post('/forgot-password', otpLimiter, forgetPassword);
 userRouter.post('/change-password', otpLimiter, changePassword);
 
@@ -301,20 +440,44 @@ userRouter.patch(
   editProfileOfUser
 );
 
-// Get logged-in user data (secure)
-
 /* ================= CMS / STATIC ================= */
 
-// Slug pages (privacy, terms, about)
 userRouter.get('/slug', getSlugByQuery);
+userRouter.get('/about-us', getAboutUs);
+userRouter.get('/privacy-policy', getPrivacyPolicy);
+userRouter.get('/terms-conditions', getTerms);
 
-/* ================= SUBJECT / SUB-SUBJECT ================= */
+/* ================= EDUCATIONAL CONTENT ================= */
 
+/**
+ * @swagger
+ * /api/users/subjects:
+ *   get:
+ *     summary: Get subjects by courseId
+ *     tags: [Educational Content]
+ *     parameters:
+ *       - in: query
+ *         name: courseId
+ *         required: true
+ *         schema: { type: string }
+ */
 userRouter.get('/subjects', getSubjectsByUser);
-userRouter.get('/get-all-subjects', getAllsubjects);
-userRouter.get('/get-sub-subjects', getSubSubjectsBySubject);
 
-/* ================= TOPIC / CHAPTER ================= */
+userRouter.get('/get-all-subjects', getAllsubjects);
+
+/**
+ * @swagger
+ * /api/users/get-sub-subjects:
+ *   get:
+ *     summary: Get sub-subjects by subjectId
+ *     tags: [Educational Content]
+ *     parameters:
+ *       - in: query
+ *         name: subjectId
+ *         required: true
+ *         schema: { type: string }
+ */
+userRouter.get('/get-sub-subjects', getSubSubjectsBySubject);
 
 userRouter.get(
   '/topics-with-chapters/sub-subject/:subSubjectId',
@@ -329,9 +492,41 @@ userRouter.get('/get-chapters/:subSubjectId', getChapterBySubSubjectId);
 /* ================= MCQ / TEST ================= */
 
 userRouter.get('/get-mcqs', getMcqsByChapter);
+
+/**
+ * @swagger
+ * /api/users/submit-test:
+ *   post:
+ *     summary: Submit a test and get results
+ *     tags: [MCQs & Tests]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               chapterId: { type: string }
+ *               answers:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ */
 userRouter.post('/submit-test', testLimiter, submitTest);
 
+/* ================= SUBSCRIPTION ROUTES ================= */
+
 userRouter.get('/get-plans', getActivePlans);
+
+/**
+ * @swagger
+ * /api/users/my-subscription:
+ *   get:
+ *     summary: Get logged-in user subscription
+ *     tags: [Subscription & Plans]
+ *     security:
+ *       - bearerAuth: []
+ */
 userRouter.get('/my-subscription', protect, getMySubscription);
 /**
  * @swagger
