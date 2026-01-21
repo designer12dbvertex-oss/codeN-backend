@@ -75,11 +75,11 @@ import {
 } from '../../controllers/admin/country.controller.js';
 
 import {
-  addState,
-  getStates,
-  getStateById,
-  updateState,
-  deleteState,
+ addState, 
+    getStates, 
+    updateState, 
+    // deleteState,
+   getActiveStates
 } from '../../controllers/admin/state.controller.js';
 
 import {
@@ -189,8 +189,10 @@ router.delete('/country/:id', deleteCountry);
  *     summary: Get all states
  *     tags: [Admin Location Management]
  */
-router.post('/state', addState);
-router.get('/state', getStates);
+// router.post('/state', addState);
+// router.get('/state', getStates);
+router.post('/add', addState);
+router.get('/all-states', getStates);
 
 /**
  * @swagger
@@ -208,9 +210,12 @@ router.get('/state', getStates);
  *     tags: [Admin Location Management]
  *     parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
  */
-router.get('/state/:id', getStateById);
-router.put('/state/:id', updateState);
-router.delete('/state/:id', deleteState);
+// router.get('/state/:id', getStateById);
+// router.put('/state/:id', updateState);
+// router.delete('/state/:id', deleteState);
+router.put('/update/:id', updateState);
+// router.delete('/delete/:id', deleteState);
+router.get('/active-list', getActiveStates);
 
 
 /* ========================== CITY ROUTES ========================== */

@@ -126,6 +126,10 @@ const generateOtp = () => {
 //         .status(400)
 //         .json({ message: 'Name, email and password are required' });
 //     }
+//     const activeState = await State.findOne({ _id: stateId, countryId, active: true });
+//     if (!activeState) {
+//       return res.status(400).json({ message: 'This state is currently not active for registration' });
+//     }
 
 //     if (!(await Country.findById(countryId)))
 //       throw new Error('Invalid country');
@@ -195,6 +199,10 @@ const generateOtp = () => {
 // };
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> b12b495d930749376ce0840f08014738738999ab
 export const register = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -205,54 +213,83 @@ export const register = async (req, res, next) => {
       email,
       mobile,
       address,
-      countryId,
       stateId,
       cityId,
-      collegeId,
+      collegeName,
       classId,
       admissionYear,
       password,
     } = req.body;
 
     // 1. Basic Validation
-    if (!name || !email || !password) {
-      return res
-        .status(400)
-        .json({ message: 'Name, email and password are required' });
+    if (!name || !email || !password || !stateId || !cityId || !collegeName) {
+      if (session.inTransaction()) await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({
+        success: false,
+        message: 'All fields (Name, Email, Password, State, City, College Name) are required.'
+      });
     }
 
-    // 2. Hierarchy Validations (Rest of the logic same)
-    if (!(await Country.findById(countryId)))
-      throw new Error('Invalid country');
-    if (!(await State.findOne({ _id: stateId, countryId })))
-      throw new Error('Invalid state');
-    if (!(await City.findOne({ _id: cityId, stateId, countryId })))
-      throw new Error('Invalid city');
+    // 2. Active State Check
+    const activeState = await State.findOne({ _id: stateId, isActive: true });
+    if (!activeState) {
+      if (session.inTransaction()) await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ success: false, message: 'Selected state is not active for registration.' });
+    }
 
-    if (
-      !(await College.findOne({ _id: collegeId, cityId, stateId, countryId }))
-    )
-      throw new Error('Invalid college');
+    // 3. City Validation
+    const cityExists = await City.findOne({ _id: cityId, stateId });
+    if (!cityExists) {
+      if (session.inTransaction()) await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ success: false, message: 'Invalid city selection for this state.' });
+    }
 
-    if (!(await ClassModel.findById(classId))) throw new Error('Invalid class');
+    // 4. Dynamic College Logic
+    let college = await College.findOne({
+      name: { $regex: new RegExp(`^${collegeName.trim()}$`, 'i') },
+      cityId
+    }).session(session);
 
+    if (!college) {
+      const createdColleges = await College.create([{
+        name: collegeName.trim(),
+        cityId,
+        stateId,
+        isActive: true
+      }], { session });
+      college = createdColleges[0];
+    }
+
+    // 5. Class Validation
+    const classExists = await ClassModel.findById(classId);
+    if (!classExists) {
+      if (session.inTransaction()) await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ success: false, message: 'Invalid class selected.' });
+    }
+
+    // 6. Password & User Existence
     if (password.length < 6) {
-      return res
-        .status(400)
-        .json({ message: 'Password must be at least 6 characters' });
+      if (session.inTransaction()) await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters.' });
     }
 
     const normalizedEmail = email.toLowerCase().trim();
-
-    // 3. Duplicate User Check
-    if (await UserModel.findOne({ email: normalizedEmail })) {
-      return res.status(400).json({ message: 'User already exists' });
+    const existingUser = await UserModel.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      if (session.inTransaction()) await session.abortTransaction();
+      session.endSession();
+      return res.status(400).json({ success: false, message: 'User already exists with this email.' });
     }
 
-    // --- ✅ CHANGE HERE: Removed Manual Bcrypt Hash ---
-    const otp = generateOtp();
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // 4. Create User (Passing plain password so Model Hook can hash it)
+    // 7. Create User
     const [user] = await UserModel.create(
       [
         {
@@ -263,10 +300,9 @@ export const register = async (req, res, next) => {
           otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
           mobile,
           address,
-          countryId,
           stateId,
           cityId,
-          collegeId,
+          collegeId: college._id,
           classId,
           admissionYear,
           signUpBy: 'email',
@@ -276,25 +312,28 @@ export const register = async (req, res, next) => {
       { session }
     );
 
-    // 5. Send OTP Email
-    await sendFormEmail(normalizedEmail, otp);
-
-    // 6. Commit Transaction
+    // 8. Commit and Cleanup
     await session.commitTransaction();
     session.endSession();
+
+    // 9. Fetch Populated Data for Response
+    const populatedUser = await UserModel.findById(user._id)
+      .populate('stateId', 'name')
+      .populate('cityId', 'name')
+      .populate('collegeId', 'name')
+      .populate('classId', 'name');
 
     return res.status(201).json({
       success: true,
       message: 'User registered successfully. Please verify your email.',
+      data: populatedUser
     });
+
   } catch (error) {
-    // 7. Abort on Error
-    await session.abortTransaction();
-    session.endSession();
+
     next(error);
   }
 };
-
 export const verifyEmail = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
@@ -435,7 +474,7 @@ export const verifyEmail = async (req, res, next) => {
 
 //     // 2. User dhundo password ke saath
 //     const user = await UserModel.findOne({ email: normalizedEmail }).select('+password');
-    
+
 //     if (!user) {
 //       return res.status(404).json({ success: false, message: 'User not found' });
 //     }
@@ -463,7 +502,7 @@ export const verifyEmail = async (req, res, next) => {
 //     const { accessToken, refreshToken } = generateToken(user._id);
 
 //     // ✅ 7. DATABASE MEIN TOKEN SAVE KARNA
-//     user.refreshToken = refreshToken; 
+//     user.refreshToken = refreshToken;
 //     await user.save(); // Model mein laga 'pre-save' hook isModified check ki wajah se password ko safe rakhega
 
 //     // 8. Sensitive fields hatana
@@ -521,18 +560,18 @@ export const login = async (req, res, next) => {
 
     // --- ✅ TOKENS GENERATE KARNA ---
     // Note: ensure generateToken.js { accessToken, refreshToken } return kare
-    const tokens = generateToken(user._id); 
-    
+    const tokens = generateToken(user._id);
+
     // Agar generateToken sirf ek string return kar raha hai, toh hum manually handle karenge
-    const accessToken = tokens.accessToken || tokens; 
-    const refreshToken = tokens.refreshToken || tokens; 
+    const accessToken = tokens.accessToken || tokens;
+    const refreshToken = tokens.refreshToken || tokens;
 
     // --- ✅ DATABASE MEIN SAVE KARNA ---
-    user.refreshToken = refreshToken; 
-    
-    // user.save() karne par model ka pre-save hook chalega 
+    user.refreshToken = refreshToken;
+
+    // user.save() karne par model ka pre-save hook chalega
     // par isModified('password') false hoga, isliye password hash kharab nahi hoga
-    await user.save(); 
+    await user.save();
 
     // 4. Safe User object
     const safeUser = user.toObject();
@@ -1355,7 +1394,7 @@ export const getMySubscription = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
       }
     };
-  
+
 
   export const getAllSubSubjectsForUser = async (req, res) => {
     try {
