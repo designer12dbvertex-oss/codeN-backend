@@ -102,6 +102,99 @@ const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+// export const register = async (req, res, next) => {
+//   const session = await mongoose.startSession();
+//   session.startTransaction();
+
+//   try {
+//     const {
+//       name,
+//       email,
+//       mobile,
+//       address,
+//       countryId,
+//       stateId,
+//       cityId,
+//       collegeId,
+//       classId,
+//       admissionYear,
+//       password,
+//     } = req.body;
+
+//     if (!name || !email || !password) {
+//       return res
+//         .status(400)
+//         .json({ message: 'Name, email and password are required' });
+//     }
+
+//     if (!(await Country.findById(countryId)))
+//       throw new Error('Invalid country');
+//     if (!(await State.findOne({ _id: stateId, countryId })))
+//       throw new Error('Invalid state');
+//     if (!(await City.findOne({ _id: cityId, stateId, countryId })))
+//       throw new Error('Invalid city');
+
+//     if (
+//       !(await College.findOne({ _id: collegeId, cityId, stateId, countryId }))
+//     )
+//       throw new Error('Invalid college');
+
+//     if (!(await ClassModel.findById(classId))) throw new Error('Invalid class');
+
+//     if (password.length < 6) {
+//       return res
+//         .status(400)
+//         .json({ message: 'Password must be at least 6 characters' });
+//     }
+
+//     const normalizedEmail = email.toLowerCase().trim();
+
+//     if (await UserModel.findOne({ email: normalizedEmail })) {
+//       return res.status(400).json({ message: 'User already exists' });
+//     }
+
+//     const hashedPassword = await bcrypt.hash(password, 10);
+//     const otp = generateOtp();
+
+//     const [user] = await UserModel.create(
+//       [
+//         {
+//           name,
+//           email: normalizedEmail,
+//           password: hashedPassword,
+//           otp,
+//           otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
+//           mobile,
+//           address,
+//           countryId,
+//           stateId,
+//           cityId,
+//           collegeId,
+//           classId,
+//           admissionYear,
+//           signUpBy: 'email',
+//           role: 'user',
+//         },
+//       ],
+//       { session }
+//     );
+
+//     await sendFormEmail(normalizedEmail, otp);
+
+//     await session.commitTransaction();
+//     session.endSession();
+
+//     return res.status(201).json({
+//       message: 'User registered successfully. Please verify your email.',
+//     });
+//   } catch (error) {
+//     await session.abortTransaction();
+//     session.endSession();
+//     next(error);
+//   }
+// };
+
+
 export const register = async (req, res, next) => {
   const session = await mongoose.startSession();
   session.startTransaction();
@@ -121,12 +214,14 @@ export const register = async (req, res, next) => {
       password,
     } = req.body;
 
+    // 1. Basic Validation
     if (!name || !email || !password) {
       return res
         .status(400)
         .json({ message: 'Name, email and password are required' });
     }
 
+    // 2. Hierarchy Validations (Rest of the logic same)
     if (!(await Country.findById(countryId)))
       throw new Error('Invalid country');
     if (!(await State.findOne({ _id: stateId, countryId })))
@@ -149,19 +244,21 @@ export const register = async (req, res, next) => {
 
     const normalizedEmail = email.toLowerCase().trim();
 
+    // 3. Duplicate User Check
     if (await UserModel.findOne({ email: normalizedEmail })) {
       return res.status(400).json({ message: 'User already exists' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // --- ✅ CHANGE HERE: Removed Manual Bcrypt Hash ---
     const otp = generateOtp();
 
+    // 4. Create User (Passing plain password so Model Hook can hash it)
     const [user] = await UserModel.create(
       [
         {
           name,
           email: normalizedEmail,
-          password: hashedPassword,
+          password: password, // ✅ Plain password bhejein, Model ise hash kar dega
           otp,
           otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
           mobile,
@@ -179,15 +276,19 @@ export const register = async (req, res, next) => {
       { session }
     );
 
+    // 5. Send OTP Email
     await sendFormEmail(normalizedEmail, otp);
 
+    // 6. Commit Transaction
     await session.commitTransaction();
     session.endSession();
 
     return res.status(201).json({
+      success: true,
       message: 'User registered successfully. Please verify your email.',
     });
   } catch (error) {
+    // 7. Abort on Error
     await session.abortTransaction();
     session.endSession();
     next(error);
@@ -264,55 +365,191 @@ export const verifyEmail = async (req, res, next) => {
   }
 };
 
+// export const login = async (req, res, next) => {
+//   try {
+//     const { email, password } = req.body;
+//     const normalizedEmail = email.toLowerCase().trim();
+
+//     // ✅ ADD: basic validation
+//     if (!email || !password) {
+//       return res.status(400).json({
+//         message: 'Email and password are required',
+//       });
+//     }
+
+//     // ✅ Ensure password is selected
+//     const user = await UserModel.findOne({ email: normalizedEmail }).select(
+//       '+password'
+//     );
+//     if (!user) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+
+//     if (user.status !== 'active') {
+//       return res.status(403).json({
+//         message: 'Account is blocked or inactive',
+//       });
+//     }
+
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) {
+//       return res.status(401).json({ message: 'Invalid credentials' });
+//     }
+
+//     if (!user.isEmailVerified) {
+//       return res.status(401).json({ message: 'Email not verified' });
+//     }
+
+//     const { accessToken, refreshToken } = generateToken(user._id);
+
+//     // ✅ REMOVE sensitive fields
+//     const safeUser = user.toObject();
+//     delete safeUser.password;
+//     delete safeUser.otp;
+//     delete safeUser.otpExpiresAt;
+
+//     res.json({
+//       message: 'Login successful',
+//       user: safeUser,
+//       accessToken,
+//       refreshToken,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+// export const login = async (req, res, next) => {
+//   try {
+//     const { email, password } = req.body;
+
+//     // 1. ✅ Validation Pehle (Taaki undefined.toLowerCase() wala crash na ho)
+//     if (!email || !password) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Email and password are required',
+//       });
+//     }
+
+//     const normalizedEmail = email.toLowerCase().trim();
+
+//     // 2. User dhundo password ke saath
+//     const user = await UserModel.findOne({ email: normalizedEmail }).select('+password');
+    
+//     if (!user) {
+//       return res.status(404).json({ success: false, message: 'User not found' });
+//     }
+
+//     // 3. Status check
+//     if (user.status !== 'active') {
+//       return res.status(403).json({
+//         success: false,
+//         message: 'Account is blocked or inactive',
+//       });
+//     }
+
+//     // 4. Password Match
+//     const isMatch = await bcrypt.compare(password, user.password);
+//     if (!isMatch) {
+//       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+//     }
+
+//     // 5. Verification check
+//     if (!user.isEmailVerified) {
+//       return res.status(401).json({ success: false, message: 'Email not verified' });
+//     }
+
+//     // 6. Token Generation
+//     const { accessToken, refreshToken } = generateToken(user._id);
+
+//     // ✅ 7. DATABASE MEIN TOKEN SAVE KARNA
+//     user.refreshToken = refreshToken; 
+//     await user.save(); // Model mein laga 'pre-save' hook isModified check ki wajah se password ko safe rakhega
+
+//     // 8. Sensitive fields hatana
+//     const safeUser = user.toObject();
+//     delete safeUser.password;
+//     delete safeUser.refreshToken; // Response ke user object mein token dikhane ki zaroorat nahi
+//     delete safeUser.otp;
+//     delete safeUser.otpExpiresAt;
+
+//     // 9. Final Response
+//     res.json({
+//       success: true,
+//       message: 'Login successful',
+//       accessToken,   // Frontend ke liye
+//       refreshToken,  // Frontend ke liye
+//       user: safeUser,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+
+
 export const login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
+
+    // 1. Validation Pehle
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: 'Email and password are required' });
+    }
+
     const normalizedEmail = email.toLowerCase().trim();
 
-    // ✅ ADD: basic validation
-    if (!email || !password) {
-      return res.status(400).json({
-        message: 'Email and password are required',
-      });
-    }
-
-    // ✅ Ensure password is selected
-    const user = await UserModel.findOne({ email: normalizedEmail }).select(
-      '+password'
-    );
+    // 2. User dhundo password ke saath
+    const user = await UserModel.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    // 3. Status aur Password check
     if (user.status !== 'active') {
-      return res.status(403).json({
-        message: 'Account is blocked or inactive',
-      });
+      return res.status(403).json({ success: false, message: 'Account is blocked or inactive' });
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
     if (!user.isEmailVerified) {
-      return res.status(401).json({ message: 'Email not verified' });
+      return res.status(401).json({ success: false, message: 'Email not verified' });
     }
 
-    const { accessToken, refreshToken } = generateToken(user._id);
+    // --- ✅ TOKENS GENERATE KARNA ---
+    // Note: ensure generateToken.js { accessToken, refreshToken } return kare
+    const tokens = generateToken(user._id); 
+    
+    // Agar generateToken sirf ek string return kar raha hai, toh hum manually handle karenge
+    const accessToken = tokens.accessToken || tokens; 
+    const refreshToken = tokens.refreshToken || tokens; 
 
-    // ✅ REMOVE sensitive fields
+    // --- ✅ DATABASE MEIN SAVE KARNA ---
+    user.refreshToken = refreshToken; 
+    
+    // user.save() karne par model ka pre-save hook chalega 
+    // par isModified('password') false hoga, isliye password hash kharab nahi hoga
+    await user.save(); 
+
+    // 4. Safe User object
     const safeUser = user.toObject();
     delete safeUser.password;
+    delete safeUser.refreshToken; // Response se hatana zaroori hai
     delete safeUser.otp;
     delete safeUser.otpExpiresAt;
 
-    res.json({
+    // --- ✅ FINAL RESPONSE (Token yahan hone chahiye) ---
+    return res.status(200).json({
+      success: true,
       message: 'Login successful',
+      accessToken,   // Postman mein dikhega
+      refreshToken,  // Postman mein dikhega
       user: safeUser,
-      accessToken,
-      refreshToken,
     });
+
   } catch (error) {
     next(error);
   }
