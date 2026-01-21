@@ -208,6 +208,7 @@ export const register = async (req, res, next) => {
       email,
       mobile,
       address,
+      countryName, // 👈 user se aayega
       stateId,
       cityId,
       collegeName,
@@ -215,31 +216,76 @@ export const register = async (req, res, next) => {
       admissionYear,
       password,
     } = req.body;
-    if (classId === '') classId = null;
-    // 1. Basic Validation
-    if (!name || !email || !password || !stateId || !cityId || !collegeName) {
+
+    let finalClassId = classId;
+    if (finalClassId === '') finalClassId = null;
+
+    // 1️⃣ Basic Validation
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !countryName ||
+      !stateId ||
+      !cityId ||
+      !collegeName
+    ) {
       if (session.inTransaction()) await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
         message:
-          'All fields (Name, Email, Password, State, City, College Name) are required.',
+          'All fields (Name, Email, Password, Country, State, City, College Name) are required.',
       });
     }
 
-    // 2. Active State Check
-    const activeState = await State.findOne({ _id: stateId, isActive: true });
+    // 2️⃣ COUNTRY AUTO FIND-OR-CREATE
+    let country = await Country.findOne({
+      name: { $regex: new RegExp(`^${countryName.trim()}$`, 'i') },
+    });
+
+    if (!country) {
+      const [createdCountry] = await Country.create(
+        [
+          {
+            name: countryName.trim(),
+            isActive: true,
+          },
+        ],
+        { session }
+      );
+      country = createdCountry;
+    }
+
+    // Agar exist karti hai par inactive hai → activate kar do
+    if (!country.isActive) {
+      country.isActive = true;
+      await country.save({ session });
+    }
+
+    const countryId = country._id;
+
+    // 3️⃣ STATE VALIDATION (NO countryId)
+    const activeState = await State.findOne({
+      _id: stateId,
+      isActive: true,
+    });
+
     if (!activeState) {
       if (session.inTransaction()) await session.abortTransaction();
       session.endSession();
       return res.status(400).json({
         success: false,
-        message: 'Selected state is not active for registration.',
+        message: 'Selected state is not active.',
       });
     }
 
-    // 3. City Validation
-    const cityExists = await City.findOne({ _id: cityId, stateId });
+    // 4️⃣ CITY VALIDATION (ONLY stateId)
+    const cityExists = await City.findOne({
+      _id: cityId,
+      stateId: stateId,
+    });
+
     if (!cityExists) {
       if (session.inTransaction()) await session.abortTransaction();
       session.endSession();
@@ -249,7 +295,7 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // 4. Dynamic College Logic
+    // 5️⃣ Dynamic College Logic
     let college = await College.findOne({
       name: { $regex: new RegExp(`^${collegeName.trim()}$`, 'i') },
       cityId,
@@ -270,18 +316,9 @@ export const register = async (req, res, next) => {
       college = createdColleges[0];
     }
 
-    // 5. Class Validation
-    // const classExists = await ClassModel.findById(classId);
-    // if (!classExists) {
-    //   if (session.inTransaction()) await session.abortTransaction();
-    //   session.endSession();
-    //   return res
-    //     .status(400)
-    //     .json({ success: false, message: 'Invalid class selected.' });
-    // }
-    if (classId) {
-      // <--- Ye if condition lagana zaroori hai
-      const classExists = await ClassModel.findById(classId);
+    // 6️⃣ Class Validation
+    if (finalClassId) {
+      const classExists = await ClassModel.findById(finalClassId);
       if (!classExists) {
         if (session.inTransaction()) await session.abortTransaction();
         session.endSession();
@@ -290,7 +327,8 @@ export const register = async (req, res, next) => {
           .json({ success: false, message: 'Invalid class selected.' });
       }
     }
-    // 6. Password & User Existence
+
+    // 7️⃣ Password & User Existence
     if (password.length < 6) {
       if (session.inTransaction()) await session.abortTransaction();
       session.endSession();
@@ -302,6 +340,7 @@ export const register = async (req, res, next) => {
 
     const normalizedEmail = email.toLowerCase().trim();
     const existingUser = await UserModel.findOne({ email: normalizedEmail });
+
     if (existingUser) {
       if (session.inTransaction()) await session.abortTransaction();
       session.endSession();
@@ -314,21 +353,24 @@ export const register = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // 7. Create User
+    // 8️⃣ Create User
     const [user] = await UserModel.create(
       [
         {
           name,
           email: normalizedEmail,
-          password: password,
+          password: hashedPassword,
           otp,
           otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
           mobile,
           address,
+
+          countryId, // 👈 ONLY HERE
           stateId,
           cityId,
+
           collegeId: college._id,
-          classId,
+          classId: finalClassId,
           admissionYear,
           signUpBy: 'email',
           role: 'user',
@@ -337,12 +379,14 @@ export const register = async (req, res, next) => {
       { session }
     );
 
-    // 8. Commit and Cleanup
+    // 9️⃣ Commit and Cleanup
     await session.commitTransaction();
     session.endSession();
     await sendFormEmail(normalizedEmail, otp);
-    // 9. Fetch Populated Data for Response
+
+    // 🔟 Populate for Response
     const populatedUser = await UserModel.findById(user._id)
+      .populate('countryId', 'name')
       .populate('stateId', 'name')
       .populate('cityId', 'name')
       .populate('collegeId', 'name')
@@ -354,7 +398,6 @@ export const register = async (req, res, next) => {
       data: populatedUser,
     });
   } catch (error) {
-    // FIX: Only abort if the transaction is still active
     if (session.inTransaction()) {
       await session.abortTransaction();
     }
@@ -362,6 +405,7 @@ export const register = async (req, res, next) => {
     next(error);
   }
 };
+
 export const verifyEmail = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
