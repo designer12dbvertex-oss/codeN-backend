@@ -137,7 +137,7 @@ import {
   postRating,
   logout,
   getAllSubSubjectsForUser,
-  getCourseListSimple,
+  getCourseListSimple
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
