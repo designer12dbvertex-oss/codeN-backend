@@ -1913,18 +1913,32 @@ export const getTopicVideosForUser = async (req, res) => {
     }
 
     // 6. Grouping into Chapters (Match check)
+    // const groupedData = chapters.map(chapter => {
+    //   const chapterVideos = videos.filter(v => 
+    //     v.chapterId && v.chapterId.toString() === chapter._id.toString()
+    //   );
     const groupedData = chapters.map(chapter => {
-      const chapterVideos = videos.filter(v => 
-        v.chapterId && v.chapterId.toString() === chapter._id.toString()
-      );
-      
-      return {
-        chapterId: chapter._id,
-        chapterName: chapter.name,
-        videos: chapterVideos
-      };
-    }).filter(group => group.videos.length > 0); // Sirf wahi chapters dikhao jinme videos hain
+  // Debug: Check karein IDs match ho rahi hain ya nahi
+  const chapterVideos = videos.filter(v => {
+    if (!v.chapterId) return false;
+    return v.chapterId.toString() === chapter._id.toString();
+  });
+  
+  return {
+    chapterId: chapter._id,
+    chapterName: chapter.name,
+    videos: chapterVideos
+  };
+});
 
+      
+      // return {
+      //   chapterId: chapter._id,
+      //   chapterName: chapter.name,
+      //   videos: chapterVideos
+      // };
+    // }).filter(group => group.videos.length > 0); // Sirf wahi chapters dikhao jinme videos hain
+const finalData = groupedData.filter(group => group.videos.length > 0);
     res.status(200).json({
       success: true,
       topicName: topic?.name,
@@ -2029,6 +2043,36 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
       data: mcqs
     });
 
+  } catch (error) {
+    next(error);
+  }
+};
+export const getDailyMCQ = async (req, res, next) => {
+  try {
+    const today = new Date();
+    const dateString = today.toISOString().split('T')[0]; // Format: 2024-05-20
+
+    // Date ko seed number mein badalna taaki poore din ek hi question dikhe
+    const seed = dateString.split('-').reduce((acc, val) => acc + parseInt(val), 0);
+
+    const count = await MCQ.countDocuments({ status: 'active' });
+
+    if (count === 0) {
+      return res.status(404).json({ success: false, message: 'No active MCQs found' });
+    }
+
+    const dailyIndex = seed % count;
+
+    const dailyQuestion = await MCQ.findOne({ status: 'active' })
+      .skip(dailyIndex)
+      .populate('courseId subjectId subSubjectId chapterId tagId', 'name');
+
+    res.status(200).json({
+      success: true,
+      message: 'Daily MCQ fetched successfully',
+      date: dateString,
+      data: dailyQuestion,
+    });
   } catch (error) {
     next(error);
   }

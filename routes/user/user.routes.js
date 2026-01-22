@@ -138,7 +138,8 @@ import {
   getAllSubSubjectsForUser,
   getCourseListSimple,
   logout,
-   updateVideoProgress
+   updateVideoProgress,
+  getDailyMCQ
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -517,7 +518,8 @@ userRouter.get('/topics/:id', getSingleTopicForUser);
 userRouter.get('/get-chapters/:subSubjectId', getChapterBySubSubjectId);
 userRouter.get('/topic-videos/:topicId', protect,getTopicVideosForUser);
 userRouter.post('/update-progress', protect, updateVideoProgress);
-userRouter.post('/generate-custom-test',getCustomPracticeMCQs)
+userRouter.post('/generate-custom-test',getCustomPracticeMCQs);
+userRouter.get('/daily-mcq', getDailyMCQ);
 
 /* ================= MCQ / TEST ================= */
 
