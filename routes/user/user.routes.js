@@ -20,6 +20,7 @@ import {
   buySubscription,
   postRating,
   getAllSubSubjectsForUser,
+  getCourseListSimple
 } from '../../controllers/user/userController.js';
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
 import { getPrivacyPolicy } from '../../controllers/admin/PrivacyPolicy/privacy.controller.js';
@@ -38,6 +39,7 @@ import {
   getTopicsByChapterForUser,
   getSingleTopicForUser,
   getTopicsWithChaptersForUser,
+  getTopicVideosForUser
 } from '../../controllers/user/userController.js';
 
 import { testLimiter, otpLimiter } from '../../middleware/limiter.js';
@@ -268,6 +270,7 @@ userRouter.get('/topics', getAllTopicsForUser);
 userRouter.get('/topics/chapter/:chapterId', getTopicsByChapterForUser);
 userRouter.get('/topics/:id', getSingleTopicForUser);
 userRouter.get('/get-chapters/:subSubjectId', getChapterBySubSubjectId);
+userRouter.get('/topic-videos/:topicId', getTopicVideosForUser);
 
 /* ================= MCQ / TEST ================= */
 
@@ -313,6 +316,7 @@ userRouter.post('/buy-plan', protect, buySubscription);
 userRouter.get('/about-us', getAboutUs);
 userRouter.get('/privacy-policy', getPrivacyPolicy);
 userRouter.get('/terms-conditions', getTerms);
+userRouter.get('/list', getCourseListSimple);
 /**
  * @swagger
  * /api/users/{id}:
