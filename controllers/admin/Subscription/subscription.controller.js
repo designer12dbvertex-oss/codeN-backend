@@ -153,3 +153,47 @@ export const getAllTransactionsForAdmin = async (req, res) => {
     res.status(500).json({ status: false, message: error.message });
   }
 };
+/**
+ * 🟢 6. Get Active Plans for User (Flutter)
+ */
+export const getActivePlansForUser = async (req, res) => {
+  try {
+    // Sirf wahi plans jo admin ne 'active' rakhe hain
+    const plans = await SubscriptionPlan.find({ isActive: true })
+      .select('name features pricing') // Sirf kaam ki fields bhejein
+      .sort({ "pricing.0.price": 1 }); // Saste plans pehle dikhane ke liye
+
+    res.status(200).json({
+      status: true,
+      data: plans
+    });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};
+
+/**
+ * 🟢 7. Get User's Current Subscription (Flutter)
+ */
+export const getMySubscription = async (req, res) => {
+  try {
+    const user_id = req.headers.userID; // Same logic as your buy API
+
+    const user = await User.findById(user_id)
+      .select('subscription subscriptionStatus')
+      .populate('subscription.plan_id', 'name');
+
+    if (!user) return res.status(404).json({ status: false, message: "User not found" });
+
+    res.status(200).json({
+      status: true,
+      data: {
+        isSubscribed: user.subscription?.isActive || false,
+        details: user.subscription,
+        status: user.subscriptionStatus
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
+};

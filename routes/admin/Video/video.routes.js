@@ -234,6 +234,7 @@ router.put(
     updateVideo
 );
 
+
 /**
  * @swagger
  * /api/admin/videos/{id}:

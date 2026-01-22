@@ -182,41 +182,90 @@ import Video from '../../../models/admin/Video/video.model.js';
 //   }
 // };
 
+// export const createVideo = async (req, res, next) => {
+
+//   try {
+//     const {
+//       courseId,
+//       subjectId,
+//       subSubjectId,
+//       topicId,      // ✅ Naya field: Topic
+//       chapterId,
+//       title,
+//       description,
+//       order,
+//     } = req.body;
+// if (!topicId) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         message: 'Topic ID is missing! Please select a topic in the frontend.' 
+//       });
+//     }
+//     // 1. Check video file
+//     if (!req.files || !req.files.video) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Please upload a video file' });
+//     }
+
+//     // 2. Extract paths
+//     const videoUrl = req.files.video[0].path;
+//     const thumbnailUrl = req.files.thumbnail ? req.files.thumbnail[0].path : null;
+//     const notesUrl = req.files.notes ? req.files.notes[0].path : null;
+
+//     // 3. Save to Database
+//     const video = await Video.create({
+//       courseId,
+//       subjectId,
+//       subSubjectId,
+//       topicId,      // ✅ Added Topic
+//       chapterId,
+//       title,
+//       description,
+//       videoUrl,
+//       thumbnailUrl,
+//       notesUrl,
+//       order: order || 0,
+//       createdBy: req.admin._id,
+//       updatedBy: req.admin._id,
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'Video with Topic, Thumbnail and Notes saved successfully',
+//       data: video,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
 export const createVideo = async (req, res, next) => {
   try {
-    const {
-      courseId,
-      subjectId,
-      subSubjectId,
-      topicId,      // ✅ Naya field: Topic
-      chapterId,
-      title,
-      description,
-      order,
-    } = req.body;
+    const { courseId, subjectId, subSubjectId, topicId, chapterId, title, description, order } = req.body;
 
-    // 1. Check video file
-    if (!req.files || !req.files.video) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Please upload a video file' });
+    if (!topicId) {
+      return res.status(400).json({ success: false, message: 'Topic ID is missing!' });
     }
 
-    // 2. Extract paths
-    const videoUrl = req.files.video[0].path;
-    const thumbnailUrl = req.files.thumbnail ? req.files.thumbnail[0].path : null;
-    const notesUrl = req.files.notes ? req.files.notes[0].path : null;
+    if (!req.files || !req.files.video) {
+      return res.status(400).json({ success: false, message: 'Please upload a video file' });
+    }
 
-    // 3. Save to Database
+    // --- YE BADLAV KAREIN (Path Cleaning) ---
+    // .replace(/\\/g, '/') ensures ki Windows wale slash ( \ ) forward slash ( / ) ban jayein
+    const videoUrl = req.files.video[0].path.replace(/\\/g, '/');
+    const thumbnailUrl = req.files.thumbnail ? req.files.thumbnail[0].path.replace(/\\/g, '/') : null;
+    const notesUrl = req.files.notes ? req.files.notes[0].path.replace(/\\/g, '/') : null;
+
     const video = await Video.create({
       courseId,
       subjectId,
       subSubjectId,
-      topicId,      // ✅ Added Topic
+      topicId,
       chapterId,
       title,
       description,
-      videoUrl,
+      videoUrl,      // Ab ye "uploads/videos/name.mp4" jaisa save hoga
       thumbnailUrl,
       notesUrl,
       order: order || 0,
@@ -226,7 +275,7 @@ export const createVideo = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Video with Topic, Thumbnail and Notes saved successfully',
+      message: 'Video saved successfully',
       data: video,
     });
   } catch (error) {

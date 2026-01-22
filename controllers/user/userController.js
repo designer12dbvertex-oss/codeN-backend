@@ -21,6 +21,8 @@ import TransactionModel from '../../models/admin/Transaction/Transaction.js';
 import Rating from '../../models/admin/Rating.js';
 import Course from '../../models/admin/Course/course.model.js';
 import Video from '../../models/admin/Video/video.model.js';
+import VideoProgress from '../../models/admin/Video/videoprogess.js';
+
 
 
 export const loginByGoogle = async (req, res, next) => {
@@ -1447,12 +1449,66 @@ export const submitTest = async (req, res) => {
 };
 
 // 1. Saare Active Plans Dekhna
+// export const getActivePlans = async (req, res, next) => {
+//   try {
+//     const plans = await SubscriptionPlan.find({ isActive: true });
+//     res.status(200).json({ success: true, data: plans });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+// 1. Get All Active Plans (For Plan Selection Screen)
 export const getActivePlans = async (req, res, next) => {
   try {
-    const plans = await SubscriptionPlan.find({ isActive: true });
-    res.status(200).json({ success: true, data: plans });
+    // Pricing ke hisab se sort kar diya taaki sasta plan pehle dikhe
+    const plans = await SubscriptionPlan.find({ isActive: true }).sort({ "pricing.0.price": 1 });
+    
+    res.status(200).json({ 
+      success: true, 
+      count: plans.length,
+      data: plans 
+    });
   } catch (error) {
     next(error);
+  }
+};
+
+// 2. Get User's Current Plan (For Profile or Checking Access)
+export const getMySubscription = async (req, res) => {
+  try {
+    const user_id = req.user._id; // Auth middleware se aayega
+    
+    const user = await UserModel.findById(user_id)
+      .select('subscription subscriptionStatus')
+      .populate('subscription.plan_id', 'name features');
+
+    if (!user) {
+        return res.status(404).json({ status: false, message: "User not found" });
+    }
+
+    // Check if subscription exists and is NOT expired
+    const today = new Date();
+    const hasActivePlan = user.subscription && 
+                          user.subscription.isActive && 
+                          user.subscription.endDate > today;
+
+    if (!hasActivePlan) {
+      return res.status(200).json({
+        status: true,
+        isSubscribed: false,
+        message: 'No active subscription found or plan expired',
+        data: null,
+      });
+    }
+
+    res.status(200).json({ 
+        status: true, 
+        isSubscribed: true,
+        data: user 
+    });
+
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
   }
 };
 
@@ -1514,42 +1570,67 @@ export const buySubscription = async (req, res, next) => {
     next(error);
   }
 };
-export const getMySubscription = async (req, res) => {
-  try {
-    const user_id = req.user._id;
-    const user = await UserModel.findById(user_id)
-      .select('subscription subscriptionStatus')
-      .populate('subscription.plan_id', 'name features');
+// export const getMySubscription = async (req, res) => {
+//   try {
+//     const user_id = req.user._id;
+//     const user = await UserModel.findById(user_id)
+//       .select('subscription subscriptionStatus')
+//       .populate('subscription.plan_id', 'name features');
 
-    if (!user.subscription || !user.subscription.isActive) {
-      return res.status(200).json({
-        status: true,
-        message: 'No active subscription found',
-        data: null,
-      });
-    }
+//     if (!user.subscription || !user.subscription.isActive) {
+//       return res.status(200).json({
+//         status: true,
+//         message: 'No active subscription found',
+//         data: null,
+//       });
+//     }
 
-    res.status(200).json({ status: true, data: user });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
-  }
-};
+//     res.status(200).json({ status: true, data: user });
+//   } catch (error) {
+//     res.status(500).json({ status: false, message: error.message });
+//   }
+// };
+// export const postRating = async (req, res) => {
+//   try {
+//     const { rating, review } = req.body;
+//     const userId = req.user._id; // Auth middleware se milega
+
+//     if (!rating) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Rating is required' });
+//     }
+
+//     const newRating = await Rating.create({
+//       userId,
+//       rating,
+//       review,
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'Thank you for your rating!',
+//       data: newRating,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 export const postRating = async (req, res) => {
   try {
-    const { rating, review } = req.body;
-    const userId = req.user._id; // Auth middleware se milega
+    const { rating, review, videoId } = req.body; // videoId add kiya
+    const userId = req.user._id;
 
-    if (!rating) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Rating is required' });
+    if (!rating || !videoId) {
+      return res.status(400).json({ success: false, message: 'Rating and VideoId are required' });
     }
 
-    const newRating = await Rating.create({
-      userId,
-      rating,
-      review,
-    });
+    // Update if already exists, else create new (Optional logic)
+    const newRating = await Rating.findOneAndUpdate(
+      { userId, videoId },
+      { rating, review },
+      { upsert: true, new: true }
+    );
 
     res.status(201).json({
       success: true,
@@ -1560,7 +1641,6 @@ export const postRating = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 export const getAllSubSubjectsForUser = async (req, res) => {
   try {
     const { courseId } = req.query; // Course ke base par filter zaroori hai
@@ -1653,53 +1733,364 @@ export const getCourseListSimple = async (req, res, next) => {
 
 
 
+// export const getTopicVideosForUser = async (req, res) => {
+//   try {
+//     const { topicId } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(topicId)) {
+//       return res.status(400).json({ success: false, message: 'Invalid topicId format' });
+//     }
+
+//     // 1. Topic ka naam nikaalein
+//     const topic = await Topic.findById(topicId).select('name').lean();
+//     if (!topic) {
+//       return res.status(404).json({ success: false, message: 'Topic not found' });
+//     }
+
+//     // 2. Is Topic ke andar jitne ACTIVE Chapters hain wo nikaalein
+//     const chapters = await Chapter.find({ topicId, status: 'active' })
+//       .select('name order')
+//       .sort({ order: 1 })
+//       .lean();
+
+//     // 3. Is Topic ke saare ACTIVE Videos nikaalein
+//     const allVideos = await Video.find({ topicId, status: 'active' })
+//       .select('title thumbnailUrl videoUrl chapterId order')
+//       .sort({ order: 1 })
+//       .lean();
+
+//     // 4. Grouping Logic: Har Chapter ke andar uske Videos daalna
+//     const groupedData = chapters.map(chapter => {
+//       // Is chapter se match hone waale videos filter karein
+//       const chapterVideos = allVideos.filter(
+//         v => v.chapterId.toString() === chapter._id.toString()
+//       );
+
+//       return {
+//         chapterId: chapter._id,
+//         chapterName: chapter.name,
+//         videos: chapterVideos // Sirf is chapter ke videos yahan aayenge
+//       };
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       topicName: topic.name,
+//       data: groupedData
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+// export const getTopicVideosForUser = async (req, res) => {
+//   try {
+//     const { topicId } = req.params;
+//     const { filterType } = req.query; // Query params: 'all', 'paused', 'completed', 'unattended'
+//     const userId = req.user._id;
+
+//     const topic = await Topic.findById(topicId).select('name').lean();
+//     const chapters = await Chapter.find({ topicId, status: 'active' }).sort({ order: 1 }).lean();
+
+//     // Aggregation: Videos + Student ki Progress ko merge karna
+//     let videos = await Video.aggregate([
+//       { $match: { topicId: new mongoose.Types.ObjectId(topicId), status: 'active' } },
+//       {
+//         $lookup: {
+//           from: 'videoprogresses', // Make sure collection name is correct (lowercase plural)
+//           let: { vId: '$_id' },
+//           pipeline: [
+//             { $match: { $expr: { $and: [ { $eq: ['$videoId', '$$vId'] }, { $eq: ['$userId', userId] } ] } } }
+//           ],
+//           as: 'progressInfo'
+//         }
+//       },
+//       {
+//         $lookup: {
+//           from: 'ratings', 
+//           localField: '_id',
+//           foreignField: 'videoId',
+//           as: 'allRatings'
+//         }
+//       },
+//       {
+//         $addFields: {
+//           statusTag: { $ifNull: [{ $arrayElemAt: ['$progressInfo.status', 0] }, 'unattended'] },
+//           watchPercentage: { $ifNull: [{ $arrayElemAt: ['$progressInfo.percentage', 0] }, 0] }
+//         }
+//       },
+//       { $project: { progressInfo: 0 } }
+//     ]);
+
+//     // Filtering Logic
+//     if (filterType === 'completed') {
+//       videos = videos.filter(v => v.statusTag === 'completed');
+//     } else if (filterType === 'paused') {
+//       videos = videos.filter(v => v.statusTag === 'watching');
+//     } else if (filterType === 'unattended') {
+//       videos = videos.filter(v => v.statusTag === 'unattended');
+//     }
+
+//     // Grouping into Chapters
+//     const groupedData = chapters.map(chapter => {
+//       const chapterVideos = videos.filter(v => v.chapterId.toString() === chapter._id.toString());
+//       return {
+//         chapterId: chapter._id,
+//         chapterName: chapter.name,
+//         videos: chapterVideos
+//       };
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       topicName: topic?.name,
+//       data: groupedData
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 export const getTopicVideosForUser = async (req, res) => {
   try {
     const { topicId } = req.params;
+    const { filterType } = req.query; 
+    const userId = req.user._id;
 
-    if (!mongoose.Types.ObjectId.isValid(topicId)) {
-      return res.status(400).json({ success: false, message: 'Invalid topicId format' });
-    }
-
-    // 1. Topic ka naam nikaalein
     const topic = await Topic.findById(topicId).select('name').lean();
-    if (!topic) {
-      return res.status(404).json({ success: false, message: 'Topic not found' });
+    const chapters = await Chapter.find({ topicId, status: 'active' }).sort({ order: 1 }).lean();
+
+    // Aggregation: Videos + Progress + Ratings
+    let videos = await Video.aggregate([
+      // 1. Topic ke videos filter karein
+      { $match: { topicId: new mongoose.Types.ObjectId(topicId), status: 'active' } },
+      
+      // 2. Progress Lookup
+      {
+        $lookup: {
+          from: 'videoprogresses',
+          let: { vId: '$_id' },
+          pipeline: [
+            { $match: { $expr: { $and: [ { $eq: ['$videoId', '$$vId'] }, { $eq: ['$userId', userId] } ] } } }
+          ],
+          as: 'progressInfo'
+        }
+      },
+
+      // 3. Ratings Lookup (Iske bina totalReviews error dega)
+      {
+        $lookup: {
+          from: 'ratings', 
+          localField: '_id',
+          foreignField: 'videoId',
+          as: 'allRatings'
+        }
+      },
+
+      // 4. Fields Calculation (Null values ko 0 mein badalna)
+      {
+        $addFields: {
+          statusTag: { $ifNull: [{ $arrayElemAt: ['$progressInfo.status', 0] }, 'unattended'] },
+          watchPercentage: { $ifNull: [{ $arrayElemAt: ['$progressInfo.percentage', 0] }, 0] },
+          lastWatchTime: { $ifNull: [{ $arrayElemAt: ['$progressInfo.watchTime', 0] }, 0] },
+          avgRating: { $ifNull: [{ $avg: '$allRatings.rating' }, 0] }, // Null to 0
+          totalReviews: { $size: { $ifNull: ['$allRatings', []] } }    // Missing array to 0
+        }
+      },
+      { $project: { progressInfo: 0, allRatings: 0 } }
+    ]);
+
+    // DEBUG: Terminal mein check karein ki kitne videos mile
+    console.log("Total Videos Found before filter:", videos.length);
+
+    // 5. Filtering Logic
+    if (filterType && filterType !== 'all') {
+      const typeMap = { 'completed': 'completed', 'paused': 'watching', 'unattended': 'unattended' };
+      const targetStatus = typeMap[filterType];
+      if (targetStatus) {
+        videos = videos.filter(v => v.statusTag === targetStatus);
+      }
     }
 
-    // 2. Is Topic ke andar jitne ACTIVE Chapters hain wo nikaalein
-    const chapters = await Chapter.find({ topicId, status: 'active' })
-      .select('name order')
-      .sort({ order: 1 })
-      .lean();
-
-    // 3. Is Topic ke saare ACTIVE Videos nikaalein
-    const allVideos = await Video.find({ topicId, status: 'active' })
-      .select('title thumbnailUrl videoUrl chapterId order')
-      .sort({ order: 1 })
-      .lean();
-
-    // 4. Grouping Logic: Har Chapter ke andar uske Videos daalna
+    // 6. Grouping into Chapters (Match check)
     const groupedData = chapters.map(chapter => {
-      // Is chapter se match hone waale videos filter karein
-      const chapterVideos = allVideos.filter(
-        v => v.chapterId.toString() === chapter._id.toString()
+      const chapterVideos = videos.filter(v => 
+        v.chapterId && v.chapterId.toString() === chapter._id.toString()
       );
-
+      
       return {
         chapterId: chapter._id,
         chapterName: chapter.name,
-        videos: chapterVideos // Sirf is chapter ke videos yahan aayenge
+        videos: chapterVideos
       };
-    });
+    }).filter(group => group.videos.length > 0); // Sirf wahi chapters dikhao jinme videos hain
 
     res.status(200).json({
       success: true,
-      topicName: topic.name,
+      topicName: topic?.name,
+      totalVideosCount: videos.length, // Flutter dev ke liye helpful
       data: groupedData
     });
 
   } catch (error) {
+    console.error("Aggregation Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const updateVideoProgress = async (req, res) => {
+  try {
+    const { videoId, topicId, watchTime, totalDuration } = req.body;
+    const userId = req.user._id; // Auth middleware se mil raha hai
+
+    // Percentage calculate karein
+    const percentage = (watchTime / totalDuration) * 100;
+    
+    let status = 'watching';
+    if (percentage >= 90) status = 'completed'; // 90% dekha matlab complete
+
+    const progress = await VideoProgress.findOneAndUpdate(
+      { userId, videoId },
+      { 
+        topicId,
+        watchTime, 
+        totalDuration, 
+        percentage: Math.round(percentage),
+        status 
+      },
+      { upsert: true, new: true } // Agar record nahi hai toh naya bana dega
+    );
+
+    res.status(200).json({ success: true, data: progress });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+
+/**
+ * @desc    Generate Custom Test (Difficulty + Tag + Subject + Mode)
+ * @route   POST /api/users/generate-custom-test
+ */
+
+export const getCustomPracticeMCQs = async (req, res, next) => {
+  try {
+    const { subjectId, tagId, difficulty, mode } = req.body;
+
+    if (!subjectId) {
+      return res.status(400).json({ success: false, message: 'Subject ID is required' });
+    }
+
+    const filter = { 
+        status: 'active',
+        subjectId: new mongoose.Types.ObjectId(subjectId) 
+    }; 
+
+    if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
+    if (difficulty) filter.difficulty = difficulty;
+    if (mode) filter.mode = mode;
+
+    const mcqs = await MCQ.aggregate([
+      { $match: filter },
+      { $sample: { size: 20 } },
+      // --- TAGS ki details nikalne ke liye Lookup ---
+      {
+        $lookup: {
+          from: 'tags', // Aapke Tags collection ka naam (check in MongoDB)
+          localField: 'tagId',
+          foreignField: '_id',
+          as: 'tagDetails'
+        }
+      },
+      {
+        $project: {
+          question: 1,
+          options: 1,
+          correctAnswer: 1,
+          explanation: 1,
+          difficulty: 1,
+          marks: 1,
+          negativeMarks: 1,
+          mode: 1,
+          // Tag details ko readable format mein bhejna
+          tag: { $arrayElemAt: ["$tagDetails", 0] } 
+        }
+      }
+    ]);
+
+    res.status(200).json({
+      success: true,
+      count: mcqs.length,
+      mode: mode || 'regular',
+      isTimerRequired: mode === 'exam',
+      timerMinutes: 20,
+      data: mcqs
+    });
+
+  } catch (error) {
+    next(error);
+  }
+};
+// export const getCustomPracticeMCQs = async (req, res, next) => {
+//   try {
+//     const { 
+//       subjectId,    // Subject select karna compulsory hai
+//       tagId,        // Tag (e.g., Previous Year, Important)
+//       difficulty,   // Easy, Medium, Hard
+//       mode          // regular or exam
+//     } = req.body;
+
+//     // 1. Validation: Subject zaroori hai
+//     if (!subjectId) {
+//       return res.status(400).json({ 
+//         success: false, 
+//         message: 'Please select a Subject to start the test.' 
+//       });
+//     }
+
+//     // 2. Filter Object
+//     const filter = { 
+//         status: 'active',
+//         subjectId: new mongoose.Types.ObjectId(subjectId) 
+//     }; 
+
+//     // Optional Filters (Agar user select kare toh)
+//     if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
+//     if (difficulty) filter.difficulty = difficulty;
+//     if (mode) filter.mode = mode;
+
+//     // 3. Fetch 20 Random Questions
+//     const mcqs = await MCQ.aggregate([
+//       { $match: filter },
+//       { $sample: { size: 20 } }, 
+//       {
+//         $project: {
+//           question: 1,
+//           options: 1,
+//           correctAnswer: 1,
+//           explanation: 1,
+//           difficulty: 1,
+//           marks: 1,
+//           negativeMarks: 1,
+//           mode: 1
+//         }
+//       }
+//     ]);
+
+//     // 4. Response with Mode Info for Flutter Timer
+//     res.status(200).json({
+//       success: true,
+//       count: mcqs.length,
+//       mode: mode || 'regular',
+//       // Flutter dev is field ko dekh kar timer on karega
+//       isTimerRequired: mode === 'exam' ? true : false, 
+//       timerMinutes: mode === 'exam' ? 20 : null, // 20 questions ke liye 20 min default
+//       data: mcqs
+//     });
+
+//   } catch (error) {
+//     next(error);
+//   }
+// };
