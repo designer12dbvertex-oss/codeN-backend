@@ -131,42 +131,94 @@ import Video from '../../../models/admin/Video/video.model.js';
  * @desc    Create a new video with Thumbnail and Notes
  * @route   POST /api/admin/videos
  */
+// export const createVideo = async (req, res, next) => {
+//   try {
+//     const {
+//       courseId,
+//       subjectId,
+//       subSubjectId,
+//       chapterId,
+//       title,
+//       description,
+//       order,
+//     } = req.body;
+
+//     // Check karein ki main video file aayi hai ya nahi
+//     if (!req.files || !req.files.video) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Please upload a video file' });
+//     }
+
+//     // Files ke paths nikalna
+//     const videoUrl = req.files.video[0].path;
+//     const thumbnailUrl = req.files.thumbnail
+//       ? req.files.thumbnail[0].path
+//       : null;
+//     const notesUrl = req.files.notes ? req.files.notes[0].path : null;
+
+//     const video = await Video.create({
+//       courseId,
+//       subjectId,
+//       subSubjectId,
+//       chapterId,
+//       title,
+//       description,
+//       videoUrl,
+//       thumbnailUrl, // ✅ Saved
+//       notesUrl, // ✅ Saved
+//       order: order || 0,
+//       createdBy: req.admin._id,
+//       updatedBy: req.admin._id,
+//     });
+
+//     res.status(201).json({
+//       success: true,
+//       message: 'Video, Thumbnail and Notes uploaded successfully',
+//       data: video,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const createVideo = async (req, res, next) => {
   try {
     const {
       courseId,
       subjectId,
       subSubjectId,
+      topicId,      // ✅ Naya field: Topic
       chapterId,
       title,
       description,
       order,
     } = req.body;
 
-    // Check karein ki main video file aayi hai ya nahi
+    // 1. Check video file
     if (!req.files || !req.files.video) {
       return res
         .status(400)
         .json({ success: false, message: 'Please upload a video file' });
     }
 
-    // Files ke paths nikalna
+    // 2. Extract paths
     const videoUrl = req.files.video[0].path;
-    const thumbnailUrl = req.files.thumbnail
-      ? req.files.thumbnail[0].path
-      : null;
+    const thumbnailUrl = req.files.thumbnail ? req.files.thumbnail[0].path : null;
     const notesUrl = req.files.notes ? req.files.notes[0].path : null;
 
+    // 3. Save to Database
     const video = await Video.create({
       courseId,
       subjectId,
       subSubjectId,
+      topicId,      // ✅ Added Topic
       chapterId,
       title,
       description,
       videoUrl,
-      thumbnailUrl, // ✅ Saved
-      notesUrl, // ✅ Saved
+      thumbnailUrl,
+      notesUrl,
       order: order || 0,
       createdBy: req.admin._id,
       updatedBy: req.admin._id,
@@ -174,14 +226,13 @@ export const createVideo = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: 'Video, Thumbnail and Notes uploaded successfully',
+      message: 'Video with Topic, Thumbnail and Notes saved successfully',
       data: video,
     });
   } catch (error) {
     next(error);
   }
 };
-
 /**
  * @desc    Update video details and files
  */
@@ -241,22 +292,50 @@ export const deleteVideo = async (req, res, next) => {
   }
 };
 
+// export const getAllVideos = async (req, res, next) => {
+//   try {
+//     const { chapterId, status } = req.query;
+//     const filter = {};
+//     if (chapterId) filter.chapterId = chapterId;
+//     if (status) filter.status = status;
+
+//     // const videos = await Video.find(filter)
+//     //   .populate('chapterId', 'name')
+//     //   .populate('courseId', 'name')
+//     //   .sort({ order: 1 });
+//     const videos = await Video.find(filter)
+//       .populate('courseId', 'name')
+//       .populate('subjectId', 'name')
+//       .populate('subSubjectId', 'name')
+//       .populate('chapterId', 'name')
+//       .sort({ order: 1 });
+
+//     res.status(200).json({
+//       success: true,
+//       count: videos.length,
+//       data: videos,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const getAllVideos = async (req, res, next) => {
   try {
-    const { chapterId, status } = req.query;
+    // 1. topicId ko bhi query se nikalein
+    const { chapterId, topicId, status } = req.query; 
+    
     const filter = {};
     if (chapterId) filter.chapterId = chapterId;
+    if (topicId) filter.topicId = topicId; // 2. Topic filter add karein
     if (status) filter.status = status;
 
-    // const videos = await Video.find(filter)
-    //   .populate('chapterId', 'name')
-    //   .populate('courseId', 'name')
-    //   .sort({ order: 1 });
     const videos = await Video.find(filter)
       .populate('courseId', 'name')
       .populate('subjectId', 'name')
       .populate('subSubjectId', 'name')
       .populate('chapterId', 'name')
+      .populate('topicId', 'name') // 3. Agar topic ka naam chahiye toh populate karein
       .sort({ order: 1 });
 
     res.status(200).json({
@@ -268,8 +347,6 @@ export const getAllVideos = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 export const getChapterVideoByChapterId = async (req, res, next) => {
   try {

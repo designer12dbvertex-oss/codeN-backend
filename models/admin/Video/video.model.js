@@ -27,6 +27,11 @@ const videoSchema = new mongoose.Schema({
   courseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
   subjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'Subject', required: true },
   subSubjectId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubSubject', required: true },
+  topicId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Topic', 
+    required: true 
+  },
   chapterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter', required: true },
   order: { type: Number, default: 0 },
   status: { type: String, enum: ['active', 'inactive'], default: 'active' },

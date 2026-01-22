@@ -19,8 +19,9 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 import SubscriptionPlan from '../../models/admin/SubscriptionPlan/scriptionplan.model.js';
 import TransactionModel from '../../models/admin/Transaction/Transaction.js';
 import Rating from '../../models/admin/Rating.js';
+import Course from '../../models/admin/Course/course.model.js';
+import Video from '../../models/admin/Video/video.model.js';
 
-// import Course from '../../models/admin/Course/course.model.js';
 
 export const loginByGoogle = async (req, res, next) => {
   try {
@@ -908,28 +909,71 @@ export const editProfileOfUser = async (req, res, next) => {
   }
 };
 
+// export const getSubjectsByUser = async (req, res) => {
+//   try {
+//     // 1. Agar aapko kisi specific course ke subjects chahiye (e.g. ?courseId=123)
+//     const { courseId } = req.query;
+
+//     let filter = { status: 'active' }; // Sirf active subjects dikhayenge
+//     if (courseId) {
+//       filter.courseId = courseId;
+//     }
+
+//     // 2. Database se subjects nikalna
+//     // .select() ka use karke hum sirf wahi data bhejenge jo user ko chahiye
+//     // .sort() se 'order' ke hisaab se list dikhegi
+//     const subjects = await Subject.find(filter)
+//       .select('name description order')
+//       .sort({ order: 1 });
+
+//     // 3. Response bhejna
+//     res.status(200).json({
+//       success: true,
+//       count: subjects.length,
+//       data: subjects,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: 'Subjects fetch nahi ho paye',
+//       error: error.message,
+//     });
+//   }
+// };
+
+// Pearl model import karein (agar count dikhana hai)
+// import Pearl from '../../models/admin/Pearl.js';
+
 export const getSubjectsByUser = async (req, res) => {
   try {
-    // 1. Agar aapko kisi specific course ke subjects chahiye (e.g. ?courseId=123)
     const { courseId } = req.query;
 
-    let filter = { status: 'active' }; // Sirf active subjects dikhayenge
+    let filter = { status: 'active' };
     if (courseId) {
       filter.courseId = courseId;
     }
 
-    // 2. Database se subjects nikalna
-    // .select() ka use karke hum sirf wahi data bhejenge jo user ko chahiye
-    // .sort() se 'order' ke hisaab se list dikhegi
+    // 1. Database se data nikalna
+    // 'image' field ko add kiya hai kyunki app mein icon dikhana hoga
     const subjects = await Subject.find(filter)
-      .select('name description order')
+      .select('name description image order') 
       .sort({ order: 1 });
 
-    // 3. Response bhejna
+    // 2. Base URL set karein taaki Flutter ko poora path mile
+    const baseUrl = `${req.protocol}://${req.get('host')}/`;
+
+    // 3. Data ko transform karein (Image URL fix karne ke liye)
+    const formattedSubjects = subjects.map(subject => {
+      return {
+        ...subject._doc,
+        image: subject.image ? `${baseUrl}${subject.image}` : null
+      };
+    });
+
     res.status(200).json({
       success: true,
-      count: subjects.length,
-      data: subjects,
+      count: formattedSubjects.length,
+      data: formattedSubjects,
     });
   } catch (error) {
     res.status(500).json({
@@ -939,10 +983,6 @@ export const getSubjectsByUser = async (req, res) => {
     });
   }
 };
-
-// Pearl model import karein (agar count dikhana hai)
-// import Pearl from '../../models/admin/Pearl.js';
-
 export const getAllsubjects = async (req, res) => {
   try {
     const { courseId } = req.query;
@@ -972,106 +1012,256 @@ export const getAllsubjects = async (req, res) => {
   }
 };
 
+// export const getSubSubjectsBySubject = async (req, res) => {
+//   try {
+//     const { subjectId } = req.query; // Frontend se subjectId aayegi
+
+//     if (!subjectId) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'subjectId is required' });
+//     }
+
+//     // Database se wahi sub-subjects nikalna jo is subjectId se linked hain
+//     const subSubjects = await SubSubject.find({
+//       subjectId: subjectId,
+//       status: 'active',
+//     })
+//       .select('name order')
+//       .sort({ order: 1 });
+
+//     res.status(200).json({
+//       success: true,
+//       count: subSubjects.length,
+//       data: subSubjects,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
 export const getSubSubjectsBySubject = async (req, res) => {
   try {
-    const { subjectId } = req.query; // Frontend se subjectId aayegi
+    const { subjectId } = req.query;
 
     if (!subjectId) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'subjectId is required' });
+      return res.status(400).json({ 
+        success: false, 
+        message: 'subjectId is required' 
+      });
     }
 
-    // Database se wahi sub-subjects nikalna jo is subjectId se linked hain
+    // 1. Database se data fetch karein (image field ko include kiya hai)
     const subSubjects = await SubSubject.find({
       subjectId: subjectId,
       status: 'active',
     })
-      .select('name order')
-      .sort({ order: 1 });
+    .select('name image order') // image field select kari
+    .sort({ order: 1 });
+
+    // 2. Base URL banayein images ke liye
+    const baseUrl = `${req.protocol}://${req.get('host')}/`;
+
+    // 3. Data transform karein
+    const formattedData = subSubjects.map(item => ({
+      _id: item._id,
+      name: item.name,
+      order: item.order,
+      image: item.image ? `${baseUrl}${item.image}` : null // Full Image Path
+    }));
 
     res.status(200).json({
       success: true,
-      count: subSubjects.length,
-      data: subSubjects,
+      count: formattedData.length,
+      data: formattedData,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+// export const getTopicsWithChaptersForUser = async (req, res) => {
+//   try {
+//     const { subSubjectId } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid subSubjectId',
+//       });
+//     }
+
+//     // 1) Is sub-subject ke ACTIVE chapters
+//     const chapters = await Chapter.find({
+//       subSubjectId,
+//       status: 'active',
+//     })
+//       .select('name topicId order')
+//       .sort({ order: 1 })
+//       .lean();
+
+//     // 2) Topic IDs nikaalo (duplicate remove)
+//     const topicIds = [
+//       ...new Set(
+//         chapters.filter((c) => c.topicId).map((c) => c.topicId.toString())
+//       ),
+//     ];
+
+//     // 3) Un topicIds ke ACTIVE topics
+//     const topics = await Topic.find({
+//       _id: { $in: topicIds },
+//       status: 'active',
+//     })
+//       .select('name description order')
+//       .sort({ order: 1 })
+//       .lean();
+
+//     // 4) Topic-wise chapters group karo
+//     const topicMap = {};
+//     topics.forEach((t) => {
+//       topicMap[t._id.toString()] = {
+//         _id: t._id,
+//         name: t.name,
+//         description: t.description,
+//         order: t.order,
+//         chapters: [],
+//       };
+//     });
+
+//     chapters.forEach((ch) => {
+//       const key = ch.topicId?.toString();
+//       if (topicMap[key]) {
+//         topicMap[key].chapters.push({
+//           _id: ch._id,
+//           name: ch.name,
+//           order: ch.order,
+//         });
+//       }
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       count: Object.values(topicMap).length,
+//       data: Object.values(topicMap),
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
+// export const getTopicsWithChaptersForUser = async (req, res) => {
+//   console.log("Received ID:", req.params.subSubjectId);
+//   try {
+//     const { subSubjectId} = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
+//       return res.status(400).json({ success: false, message: 'Invalid subSubjectId' });
+//     }
+
+//     // 1) Pehle us Sub-Subject ke saare ACTIVE Topics nikaalo
+//     const topics = await Topic.find({
+//       subSubjectId,
+//       status: 'active',
+//     })
+//     .select('name description order')
+//     .sort({ order: 1 })
+//     .lean();
+
+//     // 2) Ab un saare Topics ke andar ke ACTIVE Chapters nikaalo
+//     const topicIds = topics.map(t => t._id);
+//     const chapters = await Chapter.find({
+//       topicId: { $in: topicIds },
+//       status: 'active',
+//     })
+//     .select('name topicId order')
+//     .sort({ order: 1 })
+//     .lean();
+
+//     // 3) Grouping Logic: Topics ke andar unke Chapters daalna
+//     const result = topics.map(topic => {
+//       return {
+//         ...topic,
+//         chapters: chapters.filter(ch => ch.topicId.toString() === topic._id.toString())
+//       };
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       count: result.length,
+//       data: result,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 
 export const getTopicsWithChaptersForUser = async (req, res) => {
   try {
     const { subSubjectId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid subSubjectId',
-      });
+      return res.status(400).json({ success: false, message: 'Invalid subSubjectId' });
     }
 
-    // 1) Is sub-subject ke ACTIVE chapters
-    const chapters = await Chapter.find({
+    // 1) Pehle us Sub-Subject ke saare ACTIVE Topics nikaalo
+    const topics = await Topic.find({
       subSubjectId,
       status: 'active',
     })
-      .select('name topicId order')
-      .sort({ order: 1 })
-      .lean();
+    .select('name description order')
+    .sort({ order: 1 })
+    .lean();
 
-    // 2) Topic IDs nikaalo (duplicate remove)
-    const topicIds = [
-      ...new Set(
-        chapters.filter((c) => c.topicId).map((c) => c.topicId.toString())
-      ),
-    ];
+    const topicIds = topics.map(t => t._id);
 
-    // 3) Un topicIds ke ACTIVE topics
-    const topics = await Topic.find({
-      _id: { $in: topicIds },
+    // 2) Un Topics ke andar ke ACTIVE Chapters nikaalo
+    const chapters = await Chapter.find({
+      topicId: { $in: topicIds },
       status: 'active',
     })
-      .select('name description order')
-      .sort({ order: 1 })
-      .lean();
+    .select('name topicId order')
+    .sort({ order: 1 })
+    .lean();
 
-    // 4) Topic-wise chapters group karo
-    const topicMap = {};
-    topics.forEach((t) => {
-      topicMap[t._id.toString()] = {
-        _id: t._id,
-        name: t.name,
-        description: t.description,
-        order: t.order,
-        chapters: [],
-      };
-    });
-
-    chapters.forEach((ch) => {
-      const key = ch.topicId?.toString();
-      if (topicMap[key]) {
-        topicMap[key].chapters.push({
-          _id: ch._id,
-          name: ch.name,
-          order: ch.order,
-        });
+    // 3) Aggregation se har Topic ke Videos ka COUNT nikaalo (Efficiency ke liye)
+    const videoCounts = await Video.aggregate([
+      { 
+        $match: { 
+          topicId: { $in: topicIds }, 
+          status: 'active' 
+        } 
+      },
+      { 
+        $group: { 
+          _id: "$topicId", 
+          totalVideos: { $sum: 1 } 
+        } 
       }
+    ]);
+
+    // 4) Grouping Logic: Topics + Chapters + Video Count ko merge karna
+    const result = topics.map(topic => {
+      // Is topic ke liye count dhoondo
+      const countData = videoCounts.find(v => v._id.toString() === topic._id.toString());
+      
+      return {
+        ...topic,
+        videoCount: countData ? countData.totalVideos : 0, // Agar video nahi hai toh 0 dikhega
+        chapters: chapters.filter(ch => ch.topicId.toString() === topic._id.toString())
+      };
     });
 
     res.status(200).json({
       success: true,
-      count: Object.values(topicMap).length,
-      data: Object.values(topicMap),
+      count: result.length,
+      data: result,
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
-
 export const getAllTopicsForUser = async (req, res) => {
   try {
     const topics = await Topic.find({ status: 'active' })
@@ -1391,6 +1581,124 @@ export const getAllSubSubjectsForUser = async (req, res) => {
       success: true,
       data: subSubjects,
     });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+/**
+ * @desc    Get only Course Names and IDs for selection
+ * @route   GET /api/user/courses/list
+ * @access  Public
+ */
+export const getCourseListSimple = async (req, res, next) => {
+  try {
+    // Sirf active aur published courses ka 'name' uthayenge
+    const courses = await Course.find(
+      { status: 'active', isPublished: true }, 
+      'name' 
+    ).sort({ name: 1 }); // Alphabetical order mein sort kiya hai
+
+    res.status(200).json({
+      success: true,
+      message: "Course list fetched successfully",
+      data: courses,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+// export const getTopicVideosForUser = async (req, res) => {
+//   try {
+//     const { topicId } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(topicId)) {
+//       return res.status(400).json({ success: false, message: 'Invalid topicId' });
+//     }
+
+//     // 1. Topic ki Basic Details nikaalo (Sirf Name aur Description)
+//     const topic = await Topic.findById(topicId).select('name description').lean();
+    
+//     if (!topic) {
+//       return res.status(404).json({ success: false, message: 'Topic not found' });
+//     }
+
+//     // 2. Is Topic se related SAARE ACTIVE VIDEOS nikaalo
+//     // Humne yahan chapterId ko bypass kar diya hai, direct topicId se filter kiya hai
+//     const videos = await Video.find({
+//       topicId: topicId,
+//       status: 'active'
+//     })
+//     .select('title thumbnailUrl videoUrl notesUrl order') // Jo fields aapne maangi hain
+//     .sort({ order: 1 })
+//     .lean();
+
+//     // 3. Response Structure (Simple List for Flutter)
+//     res.status(200).json({
+//       success: true,
+//       topicName: topic.name,
+//       totalVideos: videos.length,
+//       data: videos.map(video => ({
+//         ...video,
+//         watchStatus: "unattended" // Default status (Completed/Paused baad mein logic se aayega)
+//       }))
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+
+
+export const getTopicVideosForUser = async (req, res) => {
+  try {
+    const { topicId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(topicId)) {
+      return res.status(400).json({ success: false, message: 'Invalid topicId format' });
+    }
+
+    // 1. Topic ka naam nikaalein
+    const topic = await Topic.findById(topicId).select('name').lean();
+    if (!topic) {
+      return res.status(404).json({ success: false, message: 'Topic not found' });
+    }
+
+    // 2. Is Topic ke andar jitne ACTIVE Chapters hain wo nikaalein
+    const chapters = await Chapter.find({ topicId, status: 'active' })
+      .select('name order')
+      .sort({ order: 1 })
+      .lean();
+
+    // 3. Is Topic ke saare ACTIVE Videos nikaalein
+    const allVideos = await Video.find({ topicId, status: 'active' })
+      .select('title thumbnailUrl videoUrl chapterId order')
+      .sort({ order: 1 })
+      .lean();
+
+    // 4. Grouping Logic: Har Chapter ke andar uske Videos daalna
+    const groupedData = chapters.map(chapter => {
+      // Is chapter se match hone waale videos filter karein
+      const chapterVideos = allVideos.filter(
+        v => v.chapterId.toString() === chapter._id.toString()
+      );
+
+      return {
+        chapterId: chapter._id,
+        chapterName: chapter.name,
+        videos: chapterVideos // Sirf is chapter ke videos yahan aayenge
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      topicName: topic.name,
+      data: groupedData
+    });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
