@@ -136,8 +136,9 @@ import {
   buySubscription,
   postRating,
   logout,
+  getMe,
   getAllSubSubjectsForUser,
-  getCourseListSimple
+  getCourseListSimple,
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -353,7 +354,7 @@ userRouter.post('/login', login);
  *         description: Unauthorized
  */
 userRouter.post('/logout', protect, logout);
-
+userRouter.get('/auth-me', protect, getMe);
 userRouter.post('/forgot-password', otpLimiter, forgetPassword);
 userRouter.post('/change-password', otpLimiter, changePassword);
 

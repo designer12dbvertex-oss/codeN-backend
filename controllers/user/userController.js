@@ -22,7 +22,6 @@ import Rating from '../../models/admin/Rating.js';
 import Course from '../../models/admin/Course/course.model.js';
 import Video from '../../models/admin/Video/video.model.js';
 
-
 export const loginByGoogle = async (req, res, next) => {
   try {
     const { access_token } = req.body;
@@ -730,6 +729,31 @@ export const logout = async (req, res, next) => {
     next(error);
   }
 };
+// userController.js
+
+export const getMe = async (req, res, next) => {
+  try {
+    // req.user protect middleware se aata hai
+    const user = await UserModel.findById(req.user._id).select(
+      '-password -otp -otpExpiresAt -refreshToken'
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'User session valid',
+      data: user,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const getSlugByQuery = async (req, res, next) => {
   try {
@@ -956,17 +980,17 @@ export const getSubjectsByUser = async (req, res) => {
     // 1. Database se data nikalna
     // 'image' field ko add kiya hai kyunki app mein icon dikhana hoga
     const subjects = await Subject.find(filter)
-      .select('name description image order') 
+      .select('name description image order')
       .sort({ order: 1 });
 
     // 2. Base URL set karein taaki Flutter ko poora path mile
     const baseUrl = `${req.protocol}://${req.get('host')}/`;
 
     // 3. Data ko transform karein (Image URL fix karne ke liye)
-    const formattedSubjects = subjects.map(subject => {
+    const formattedSubjects = subjects.map((subject) => {
       return {
         ...subject._doc,
-        image: subject.image ? `${baseUrl}${subject.image}` : null
+        image: subject.image ? `${baseUrl}${subject.image}` : null,
       };
     });
 
@@ -1045,9 +1069,9 @@ export const getSubSubjectsBySubject = async (req, res) => {
     const { subjectId } = req.query;
 
     if (!subjectId) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'subjectId is required' 
+      return res.status(400).json({
+        success: false,
+        message: 'subjectId is required',
       });
     }
 
@@ -1056,18 +1080,18 @@ export const getSubSubjectsBySubject = async (req, res) => {
       subjectId: subjectId,
       status: 'active',
     })
-    .select('name image order') // image field select kari
-    .sort({ order: 1 });
+      .select('name image order') // image field select kari
+      .sort({ order: 1 });
 
     // 2. Base URL banayein images ke liye
     const baseUrl = `${req.protocol}://${req.get('host')}/`;
 
     // 3. Data transform karein
-    const formattedData = subSubjects.map(item => ({
+    const formattedData = subSubjects.map((item) => ({
       _id: item._id,
       name: item.name,
       order: item.order,
-      image: item.image ? `${baseUrl}${item.image}` : null // Full Image Path
+      image: item.image ? `${baseUrl}${item.image}` : null, // Full Image Path
     }));
 
     res.status(200).json({
@@ -1202,7 +1226,9 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
     const { subSubjectId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-      return res.status(400).json({ success: false, message: 'Invalid subSubjectId' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid subSubjectId' });
     }
 
     // 1) Pehle us Sub-Subject ke saare ACTIVE Topics nikaalo
@@ -1210,46 +1236,50 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
       subSubjectId,
       status: 'active',
     })
-    .select('name description order')
-    .sort({ order: 1 })
-    .lean();
+      .select('name description order')
+      .sort({ order: 1 })
+      .lean();
 
-    const topicIds = topics.map(t => t._id);
+    const topicIds = topics.map((t) => t._id);
 
     // 2) Un Topics ke andar ke ACTIVE Chapters nikaalo
     const chapters = await Chapter.find({
       topicId: { $in: topicIds },
       status: 'active',
     })
-    .select('name topicId order')
-    .sort({ order: 1 })
-    .lean();
+      .select('name topicId order')
+      .sort({ order: 1 })
+      .lean();
 
     // 3) Aggregation se har Topic ke Videos ka COUNT nikaalo (Efficiency ke liye)
     const videoCounts = await Video.aggregate([
-      { 
-        $match: { 
-          topicId: { $in: topicIds }, 
-          status: 'active' 
-        } 
+      {
+        $match: {
+          topicId: { $in: topicIds },
+          status: 'active',
+        },
       },
-      { 
-        $group: { 
-          _id: "$topicId", 
-          totalVideos: { $sum: 1 } 
-        } 
-      }
+      {
+        $group: {
+          _id: '$topicId',
+          totalVideos: { $sum: 1 },
+        },
+      },
     ]);
 
     // 4) Grouping Logic: Topics + Chapters + Video Count ko merge karna
-    const result = topics.map(topic => {
+    const result = topics.map((topic) => {
       // Is topic ke liye count dhoondo
-      const countData = videoCounts.find(v => v._id.toString() === topic._id.toString());
-      
+      const countData = videoCounts.find(
+        (v) => v._id.toString() === topic._id.toString()
+      );
+
       return {
         ...topic,
         videoCount: countData ? countData.totalVideos : 0, // Agar video nahi hai toh 0 dikhega
-        chapters: chapters.filter(ch => ch.topicId.toString() === topic._id.toString())
+        chapters: chapters.filter(
+          (ch) => ch.topicId.toString() === topic._id.toString()
+        ),
       };
     });
 
@@ -1594,21 +1624,19 @@ export const getCourseListSimple = async (req, res, next) => {
   try {
     // Sirf active aur published courses ka 'name' uthayenge
     const courses = await Course.find(
-      { status: 'active', isPublished: true }, 
-      'name' 
+      { status: 'active', isPublished: true },
+      'name'
     ).sort({ name: 1 }); // Alphabetical order mein sort kiya hai
 
     res.status(200).json({
       success: true,
-      message: "Course list fetched successfully",
+      message: 'Course list fetched successfully',
       data: courses,
     });
   } catch (error) {
     next(error);
   }
 };
-
-
 
 // export const getTopicVideosForUser = async (req, res) => {
 //   try {
@@ -1620,7 +1648,7 @@ export const getCourseListSimple = async (req, res, next) => {
 
 //     // 1. Topic ki Basic Details nikaalo (Sirf Name aur Description)
 //     const topic = await Topic.findById(topicId).select('name description').lean();
-    
+
 //     if (!topic) {
 //       return res.status(404).json({ success: false, message: 'Topic not found' });
 //     }
@@ -1651,20 +1679,22 @@ export const getCourseListSimple = async (req, res, next) => {
 //   }
 // };
 
-
-
 export const getTopicVideosForUser = async (req, res) => {
   try {
     const { topicId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
-      return res.status(400).json({ success: false, message: 'Invalid topicId format' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid topicId format' });
     }
 
     // 1. Topic ka naam nikaalein
     const topic = await Topic.findById(topicId).select('name').lean();
     if (!topic) {
-      return res.status(404).json({ success: false, message: 'Topic not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Topic not found' });
     }
 
     // 2. Is Topic ke andar jitne ACTIVE Chapters hain wo nikaalein
@@ -1680,25 +1710,24 @@ export const getTopicVideosForUser = async (req, res) => {
       .lean();
 
     // 4. Grouping Logic: Har Chapter ke andar uske Videos daalna
-    const groupedData = chapters.map(chapter => {
+    const groupedData = chapters.map((chapter) => {
       // Is chapter se match hone waale videos filter karein
       const chapterVideos = allVideos.filter(
-        v => v.chapterId.toString() === chapter._id.toString()
+        (v) => v.chapterId.toString() === chapter._id.toString()
       );
 
       return {
         chapterId: chapter._id,
         chapterName: chapter.name,
-        videos: chapterVideos // Sirf is chapter ke videos yahan aayenge
+        videos: chapterVideos, // Sirf is chapter ke videos yahan aayenge
       };
     });
 
     res.status(200).json({
       success: true,
       topicName: topic.name,
-      data: groupedData
+      data: groupedData,
     });
-
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
