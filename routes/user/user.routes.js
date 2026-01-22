@@ -137,7 +137,7 @@ import {
   postRating,
   logout,
   getAllSubSubjectsForUser,
-  getCourseListSimple
+  getCourseListSimple,
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -158,7 +158,7 @@ import {
   getTopicsByChapterForUser,
   getSingleTopicForUser,
   getTopicsWithChaptersForUser,
-  getTopicVideosForUser
+  getTopicVideosForUser,
 } from '../../controllers/user/userController.js';
 
 import { testLimiter, otpLimiter } from '../../middleware/limiter.js';
@@ -271,7 +271,7 @@ userRouter.post('/google', loginByGoogle);
  *         description: User registered successfully
  */
 
-userRouter.post('/register', otpLimiter, register);
+userRouter.post('/register', register);
 /**
  * @swagger
  * /api/users/verify-email:
