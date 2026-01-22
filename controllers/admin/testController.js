@@ -1,277 +1,202 @@
-// import Test from '../../models/testModel.js';
-// import MCQ from '../../models/MCQs/mcq.model.js';
-
-// export const createTest = async (req, res) => {
-//   try {
-//     const {
-//       courseId,
-//       subjectId,
-//       subSubjectId,
-//       chapterId,
-//       scopeType,
-//       testType,
-//       totalQuestions,
-//     } = req.body;
-
-//     let filter = {};
-
-//     if (scopeType === 'chapter') filter.chapterId = chapterId;
-//     if (scopeType === 'sub-subject') filter.subSubjectId = subSubjectId;
-//     if (scopeType === 'subject') filter.subjectId = subjectId;
-
-//     const count = await MCQ.countDocuments(filter);
-//     if (count < totalQuestions) {
-//       return res.status(400).json({ message: 'Not enough MCQs' });
-//     }
-// //
-//     const duration = testType === 'exam' ? totalQuestions : null;
-
-//     const test = await Test.create({
-//       courseId,
-//       subjectId,
-//       subSubjectId,
-//       chapterId,
-//       scopeType,
-//       testType,
-//       totalQuestions,
-//       duration,
-//     });
-
-//     res.status(201).json({ success: true, test });
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
-// /**
-//  * ADMIN – GET ALL TESTS (FOR TABLE)
-//  */
-// export const getAllTests = async (req, res) => {
-//   try {
-//     const tests = await Test.find()
-//       .populate('courseId', 'name')
-//       .populate('subjectId', 'name')
-//       .populate('subSubjectId', 'name')
-//       .populate('chapterId', 'name')
-//       .sort({ createdAt: -1 });
-
-//     res.json({
-//       success: true,
-//       count: tests.length,
-//       tests,
-//     });
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
-// export const updateTest = async (req, res) => {
-//   try {
-//     const {
-//       courseId,
-//       subjectId,
-//       subSubjectId,
-//       chapterId,
-//       scopeType,
-//       testType,
-//       totalQuestions,
-//     } = req.body;
-
-//     // 🔴 BASIC VALIDATION
-//     if (!courseId || !scopeType || !testType || !totalQuestions) {
-//       return res.status(400).json({ message: 'All fields are required' });
-//     }
-
-//     // 🔴 SCOPE BASED VALIDATION
-//     if (scopeType === 'subject' && !subjectId) {
-//       return res.status(400).json({ message: 'Subject required' });
-//     }
-
-//     if (scopeType === 'sub-subject' && !subSubjectId) {
-//       return res.status(400).json({ message: 'Sub-subject required' });
-//     }
-
-//     if (scopeType === 'chapter' && !chapterId) {
-//       return res.status(400).json({ message: 'Chapter required' });
-//     }
-
-//     // 🔥 MCQ COUNT CHECK (VERY IMPORTANT)
-//     let filter = {};
-
-//     if (scopeType === 'subject') filter.subjectId = subjectId;
-//     if (scopeType === 'sub-subject') filter.subSubjectId = subSubjectId;
-//     if (scopeType === 'chapter') filter.chapterId = chapterId;
-
-//     const mcqCount = await MCQ.countDocuments(filter);
-
-//     if (mcqCount < totalQuestions) {
-//       return res
-//         .status(400)
-//         .json({ message: 'Not enough MCQs for this scope' });
-//     }
-
-//     // 🔥 UPDATE DATA
-//     let updateData = {
-//       courseId,
-//       subjectId: scopeType === 'subject' ? subjectId : null,
-//       subSubjectId:
-//         scopeType === 'sub-subject' || scopeType === 'chapter'
-//           ? subSubjectId
-//           : null,
-//       chapterId: scopeType === 'chapter' ? chapterId : null,
-//       scopeType,
-//       testType,
-//       totalQuestions,
-//     };
-
-//     // 🔥 duration auto update
-//     updateData.duration = testType === 'exam' ? totalQuestions : null;
-
-//     const test = await Test.findByIdAndUpdate(req.params.id, updateData, {
-//       new: true,
-//     });
-
-//     if (!test) {
-//       return res.status(404).json({ message: 'Test not found' });
-//     }
-
-//     res.json({ success: true, test });
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
-
-// /**
-//  * ADMIN – DELETE TEST
-//  */
-// export const deleteTest = async (req, res) => {
-//   try {
-//     const test = await Test.findById(req.params.id);
-
-//     if (!test) {
-//       return res.status(404).json({ message: 'Test not found' });
-//     }
-
-//     await test.deleteOne();
-
-//     res.json({ success: true, message: 'Test deleted successfully' });
-//   } catch (err) {
-//     res.status(500).json({ message: err.message });
-//   }
-// };
-
-// export const publishTest = async (req, res) => {
-//   const test = await Test.findByIdAndUpdate(
-//     req.params.id,
-//     { isPublished: true },
-//     { new: true }
-//   );
-//   res.json({ success: true, test });
-// };
-
-// export const unpublishTest = async (req, res) => {
-//   const test = await Test.findByIdAndUpdate(
-//     req.params.id,
-//     { isPublished: false },
-//     { new: true }
-//   );
-
-//   if (!test) {
-//     return res.status(404).json({ message: 'Test not found' });
-//   }
-
-//   res.json({ success: true, test });
-// };
-
 import Test from '../../models/admin/testModel.js';
+import Chapter from '../../models/admin/Chapter/chapter.model.js';
+import Question from '../../models/admin/MCQs/mcq.model.js';
 
 // @desc    Create New Test
+
 export const createTest = async (req, res, next) => {
   try {
-    const { questions } = req.body;
+    const {
+      month,
+      academicYear,
+      courseId,
+      testTitle,
+      category,
+      testMode,
+      subjects = [],
+      subSubjects = [],
+      topics = [],
+      chapters = [],
+      mcqLimit,
+      timeLimit,
+    } = req.body;
 
-    if (!questions || questions.length === 0) {
+    if (
+      !month ||
+      !academicYear ||
+      !courseId ||
+      !testTitle ||
+      !category ||
+      !testMode ||
+      !mcqLimit
+    ) {
       return res
         .status(400)
-        .json({ success: false, message: 'Add at least one question' });
-    }
-    for (const q of questions) {
-      // Check: Text ya Image me se kuch ek hona chahiye
-      if (!q.questionText && !q.questionImage) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: 'Each question must have text or image',
-          });
-      }
-
-      // Options validation: Har option me text ya image check karna
-      for (const opt of q.options) {
-        if (!opt.text && !opt.optionImage) {
-          return res
-            .status(400)
-            .json({
-              success: false,
-              message: 'Each option must have text or an image',
-            });
-        }
-      }
+        .json({ success: false, message: 'Missing required fields' });
     }
 
-    // Question Validation Logic
-    for (const q of questions) {
-      if (!q.questionText && !q.questionImage) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: 'Each question must have text or image',
-          });
-      }
-      if (!q.options || q.options.length !== 4) {
-        return res
-          .status(400)
-          .json({ success: false, message: '4 options required per question' });
-      }
+    if (testMode === 'exam' && !timeLimit) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Time limit required for Exam Mode' });
     }
+
+    let questionFilter = { status: 'active' };
+
+    if (category === 'grand') {
+      const allChapters = await Chapter.find({ courseId }).select('_id');
+
+      if (!allChapters.length) {
+        return res.status(404).json({
+          success: false,
+          message: 'No chapters found for this course',
+        });
+      }
+
+      questionFilter.chapterId = { $in: allChapters.map((c) => c._id) };
+    }
+
+    if (category === 'subject') {
+      if (
+        !subjects.length &&
+        !subSubjects.length &&
+        !topics.length &&
+        !chapters.length
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'Select at least one Subject / SubSubject / Topic / Chapter for Subject Test',
+        });
+      }
+
+      if (subjects.length) questionFilter.subjectId = { $in: subjects };
+      if (subSubjects.length)
+        questionFilter.subSubjectId = { $in: subSubjects };
+      if (topics.length) questionFilter.topicId = { $in: topics };
+      if (chapters.length) questionFilter.chapterId = { $in: chapters };
+    }
+
+    let questions = await Question.find(questionFilter);
+
+    if (!questions.length) {
+      return res.status(404).json({
+        success: false,
+        message: 'No questions found for selected filters',
+      });
+    }
+
+    questions = questions.sort(() => 0.5 - Math.random());
+
+    if (questions.length < mcqLimit) {
+      return res.status(400).json({
+        success: false,
+        message: `Only ${questions.length} questions available, but MCQ limit is ${mcqLimit}`,
+      });
+    }
+
+    questions = questions.slice(0, mcqLimit);
+
+    const mappedQuestions = questions.map((q) => ({
+      questionText: q.questionText,
+      questionImage: q.questionImage,
+      options: q.options,
+      correctAnswer: q.correctAnswer,
+      explanation: q.explanation,
+      chapterId: q.chapterId,
+    }));
 
     const test = await Test.create({
-      ...req.body,
+      month,
+      academicYear,
+      courseId,
+      testTitle,
+      category,
+      testMode,
+      subjects,
+      subSubjects,
+      topics,
+      chapters,
+      mcqLimit,
+      timeLimit: testMode === 'exam' ? timeLimit : null,
+      questions: mappedQuestions,
       createdBy: req.admin._id,
     });
 
-    res
-      .status(201)
-      .json({ success: true, message: 'Test Created', data: test });
+    res.status(201).json({
+      success: true,
+      message: 'Test Created Successfully',
+      data: test,
+    });
   } catch (error) {
     next(error);
   }
 };
 
 // @desc    Get All Tests with Pagination/Filters
+// @desc    Get All Tests (Admin)
+// @route   GET /api/admin/tests
 export const getAllTests = async (req, res, next) => {
   try {
-    const tests = await Test.find()
-      .populate('courseId subjectId subSubjectId chapterId', 'name')
-      .sort({ createdAt: -1 });
+    const {
+      courseId,
+      category,
+      testMode,
+      status,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
-    res.status(200).json({ success: true, count: tests.length, data: tests });
+    const filter = {};
+
+    if (courseId) filter.courseId = courseId;
+    if (category) filter.category = category; // grand | subject
+    if (testMode) filter.testMode = testMode; // regular | exam
+    if (status) filter.status = status; // active | inactive
+
+    const skip = (Number(page) - 1) * Number(limit);
+
+    const tests = await Test.find(filter)
+      .populate('courseId', 'name')
+      .populate('subjects', 'name')
+      .populate('subSubjects', 'name')
+      .populate('topics', 'name')
+      .populate('chapters', 'name')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit));
+
+    const total = await Test.countDocuments(filter);
+
+    res.status(200).json({
+      success: true,
+      count: tests.length,
+      total,
+      page: Number(page),
+      pages: Math.ceil(total / limit),
+      data: tests,
+    });
   } catch (error) {
     next(error);
   }
 };
 
 // @desc    Get Single Test by ID
+// @route   GET /api/admin/tests/:id
 export const getTestById = async (req, res, next) => {
   try {
-    const test = await Test.findById(req.params.id).populate(
-      'courseId subjectId subSubjectId chapterId',
-      'name'
-    );
+    const test = await Test.findById(req.params.id)
+      .populate('courseId', 'name')
+      .populate('subjects', 'name')
+      .populate('subSubjects', 'name')
+      .populate('topics', 'name')
+      .populate('chapters', 'name');
 
-    if (!test)
+    if (!test) {
       return res
         .status(404)
         .json({ success: false, message: 'Test not found' });
+    }
 
     res.status(200).json({ success: true, data: test });
   } catch (error) {
@@ -279,50 +204,76 @@ export const getTestById = async (req, res, next) => {
   }
 };
 
-// @desc    Update Test
+// @desc    Update Test (Admin)
+// @route   PUT /api/admin/tests/:id
 export const updateTest = async (req, res, next) => {
   try {
-    let test = await Test.findById(req.params.id);
-    if (!test)
+    const test = await Test.findById(req.params.id);
+
+    if (!test) {
       return res
         .status(404)
         .json({ success: false, message: 'Test not found' });
-
-    // Update Duration if questions change
-    if (req.body.questions) {
-      req.body.duration = req.body.questions.length;
     }
 
-    test = await Test.findByIdAndUpdate(
-      req.params.id,
-      { ...req.body, updatedBy: req.admin._id },
-      { new: true, runValidators: true }
-    );
+    const allowedFields = [
+      'month',
+      'academicYear',
+      'testTitle',
+      'status',
+      'timeLimit',
+    ];
 
-    res
-      .status(200)
-      .json({
-        success: true,
-        message: 'Test Updated Successfully',
-        data: test,
-      });
+    const updates = {};
+
+    allowedFields.forEach((field) => {
+      if (req.body[field] !== undefined) {
+        updates[field] = req.body[field];
+      }
+    });
+
+    // Exam mode validation
+    if (test.testMode === 'exam' && updates.timeLimit === undefined) {
+      updates.timeLimit = test.timeLimit;
+    }
+
+    updates.updatedBy = req.admin._id;
+
+    const updatedTest = await Test.findByIdAndUpdate(req.params.id, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Test Updated Successfully',
+      data: updatedTest,
+    });
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Delete Test
+// @desc    Soft Delete Test (Admin)
+// @route   DELETE /api/admin/tests/:id
 export const deleteTest = async (req, res, next) => {
   try {
-    const test = await Test.findByIdAndDelete(req.params.id);
-    if (!test)
+    const test = await Test.findById(req.params.id);
+
+    if (!test) {
       return res
         .status(404)
         .json({ success: false, message: 'Test not found' });
+    }
 
-    res
-      .status(200)
-      .json({ success: true, message: 'Test Deleted Successfully' });
+    test.status = 'inactive';
+    test.updatedBy = req.admin._id;
+    await test.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Test deactivated successfully',
+    });
   } catch (error) {
     next(error);
   }
