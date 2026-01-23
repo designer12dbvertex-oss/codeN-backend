@@ -52,7 +52,7 @@ export const createTest = async (req, res) => {
         message: 'Time limit is required for Exam Mode',
       });
     }
-
+    // 🔴 SUBJECT TEST VALIDATION (MISSING)
     if (category === 'subject') {
       const hasFilter =
         subjects.length ||
@@ -74,10 +74,10 @@ export const createTest = async (req, res) => {
 
     // 🔴 YAHI CHANGE HAI (field names fix)
     if (category === 'subject') {
-      if (subjects.length) mcqFilter.subject = { $in: subjects };
-      if (subSubjects.length) mcqFilter.subSubject = { $in: subSubjects };
-      if (topics.length) mcqFilter.topic = { $in: topics };
-      if (chapters.length) mcqFilter.chapter = { $in: chapters };
+      if (subjects.length) mcqFilter.subjectId = { $in: subjects };
+      if (subSubjects.length) mcqFilter.subSubjectId = { $in: subSubjects };
+      if (topics.length) mcqFilter.topicId = { $in: topics };
+      if (chapters.length) mcqFilter.chapterId = { $in: chapters };
     }
 
     console.log('🔎 MCQ FILTER:', mcqFilter);
@@ -149,18 +149,64 @@ export const getCourseFilters = async (req, res) => {
   try {
     const { courseId } = req.params;
 
-    const subjects = await Subject.find({ courseId }).select('_id name');
-    const subSubjects = await SubSubject.find({ courseId }).select('_id name');
-    const topics = await Topic.find({ courseId }).select('_id name');
-    const chapters = await Chapter.find({ courseId }).select('_id name');
+    // 1️⃣ Subjects (course se linked)
+    const subjects = await Subject.find({ courseId }).select('_id name').lean();
 
-    res.json({
+    const subjectIds = subjects.map((s) => s._id);
+
+    // 2️⃣ Sub-subjects (subjects se linked)
+    const subSubjects = await SubSubject.find({
+      subjectId: { $in: subjectIds },
+    })
+      .select('_id name subjectId')
+      .lean();
+
+    const subSubjectIds = subSubjects.map((s) => s._id);
+
+    // 3️⃣ Topics (sub-subjects se linked)
+    const topics = await Topic.find({
+      subSubjectId: { $in: subSubjectIds },
+    })
+      .select('_id name subSubjectId')
+      .lean();
+
+    const topicIds = topics.map((t) => t._id);
+
+    // 4️⃣ Chapters (topics se linked)
+    const chapters = await Chapter.find({
+      topicId: { $in: topicIds },
+    })
+      .select('_id name topicId')
+      .lean();
+
+    // 🔥 normalize IDs to string (frontend filtering ke liye)
+    const fixedSubSubjects = subSubjects.map((s) => ({
+      ...s,
+      subjectId: String(s.subjectId),
+    }));
+
+    const fixedTopics = topics.map((t) => ({
+      ...t,
+      subSubjectId: String(t.subSubjectId),
+    }));
+
+    const fixedChapters = chapters.map((c) => ({
+      ...c,
+      topicId: String(c.topicId),
+    }));
+
+    return res.status(200).json({
       success: true,
-      data: { subjects, subSubjects, topics, chapters },
+      data: {
+        subjects,
+        subSubjects: fixedSubSubjects,
+        topics: fixedTopics,
+        chapters: fixedChapters,
+      },
     });
   } catch (error) {
     console.error('Filters Error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to fetch filters',
     });
