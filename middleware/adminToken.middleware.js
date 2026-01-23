@@ -1,4 +1,4 @@
-import Admin from '../models/admin.model.js';
+import Admin from '../models/admin/admin.model.js';
 
 /**
  * Validate admin token provided in headers (Authorization Bearer or x-admin-token).

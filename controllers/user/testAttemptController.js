@@ -1,4 +1,4 @@
-import Test from '../../models/admin/testModel.js';
+import Test from '../../models/admin/Test/testModel.js';
 import TestAttempt from '../../models/user/testAttemptModel.js';
 import MCQ from '../../models/admin/MCQs/mcq.model.js';
 
@@ -201,7 +201,6 @@ export const submitTest = async (req, res) => {
   }
 };
 
-
 export const getTestResult = async (req, res) => {
   try {
     const { userId, testId } = req.params;
@@ -224,12 +223,10 @@ export const getTestResult = async (req, res) => {
       (ans) => ans.isCorrect === false
     ).length;
 
-    const notAttempted =
-      totalQuestions - (correct + wrong);
+    const notAttempted = totalQuestions - (correct + wrong);
 
-    const performance = totalQuestions > 0
-      ? Math.round((correct / totalQuestions) * 100)
-      : 0;
+    const performance =
+      totalQuestions > 0 ? Math.round((correct / totalQuestions) * 100) : 0;
 
     return res.status(200).json({
       totalQuestions,
@@ -258,30 +255,30 @@ export const getTestReview = async (req, res) => {
 
     const mcqs = await Mcq.find({ _id: { $in: mcqIds } }).lean();
 
-    const mcqMap = new Map(
-      mcqs.map((m) => [m._id.toString(), m])
-    );
+    const mcqMap = new Map(mcqs.map((m) => [m._id.toString(), m]));
 
-    const review = attempt.answers.map((ans) => {
-      const mcq = mcqMap.get(ans.mcqId.toString());
+    const review = attempt.answers
+      .map((ans) => {
+        const mcq = mcqMap.get(ans.mcqId.toString());
 
-      if (!mcq) return null;
+        if (!mcq) return null;
 
-      let status = 'Not Attempted';
+        let status = 'Not Attempted';
 
-      if (ans.selectedOption !== undefined) {
-        status = ans.isCorrect ? 'Correct' : 'Wrong';
-      }
+        if (ans.selectedOption !== undefined) {
+          status = ans.isCorrect ? 'Correct' : 'Wrong';
+        }
 
-      return {
-        mcqId: mcq._id,
-        question: mcq.question,
-        options: mcq.options,
-        selectedOption: ans.selectedOption ?? null,
-        correctOption: mcq.correctOption,
-        status,
-      };
-    }).filter(Boolean);
+        return {
+          mcqId: mcq._id,
+          question: mcq.question,
+          options: mcq.options,
+          selectedOption: ans.selectedOption ?? null,
+          correctOption: mcq.correctOption,
+          status,
+        };
+      })
+      .filter(Boolean);
 
     return res.status(200).json({
       testId,

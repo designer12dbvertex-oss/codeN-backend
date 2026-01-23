@@ -136,6 +136,7 @@ import {
   buySubscription,
   postRating,
   getAllSubSubjectsForUser,
+  getMe,
   getCourseListSimple,
   logout,
    updateVideoProgress,

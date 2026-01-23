@@ -115,7 +115,7 @@ import chapterRoutes from './routes/admin/Chapter/chapter.routes.js';
 import tagRoutes from './routes/admin/Tag/tag.routes.js';
 import mcqRoutes from './routes/admin/MCQs/mcq.routes.js';
 import bookmarkRoutes from './routes/admin/bookmark.routes.js';
-import adminTestRoutes from './routes/admin/testRoutes.js';
+import adminTestRoutes from './routes/admin/Test/testRoutes.js';
 import userTestRoutes from './routes/user/testRoutes.js';
 import userRoutes from './routes/user/user.routes.js';
 import AboutUs from './routes/admin/AboutUs/about.Routes.js';
