@@ -227,7 +227,7 @@ export const register = async (req, res, next) => {
       !name ||
       !email ||
       !password ||
-      !countryName ||
+      // !countryName ||
       !stateId ||
       !cityId ||
       !collegeName
@@ -241,31 +241,36 @@ export const register = async (req, res, next) => {
       });
     }
 
-    // 2️⃣ COUNTRY AUTO FIND-OR-CREATE
-    let country = await Country.findOne({
-      name: { $regex: new RegExp(`^${countryName.trim()}$`, 'i') },
-    });
+// 2️⃣ COUNTRY AUTO FIND-OR-CREATE
+let country = null;
+let countryId = null;
 
-    if (!country) {
-      const [createdCountry] = await Country.create(
-        [
-          {
-            name: countryName.trim(),
-            isActive: true,
-          },
-        ],
-        { session }
-      );
-      country = createdCountry;
-    }
+if (countryName && countryName.trim() !== '') {
+  country = await Country.findOne({
+    name: { $regex: new RegExp(`^${countryName.trim()}$`, 'i') },
+  });
 
-    // Agar exist karti hai par inactive hai → activate kar do
-    if (!country.isActive) {
-      country.isActive = true;
-      await country.save({ session });
-    }
+  if (!country) {
+    const [createdCountry] = await Country.create(
+      [
+        {
+          name: countryName.trim(),
+          isActive: true,
+        },
+      ],
+      { session }
+    );
+    country = createdCountry;
+  }
 
-    const countryId = country._id;
+  if (!country.isActive) {
+    country.isActive = true;
+    await country.save({ session });
+  }
+
+  countryId = country._id;
+}
+
 
     // 3️⃣ STATE VALIDATION (NO countryId)
     const activeState = await State.findOne({
