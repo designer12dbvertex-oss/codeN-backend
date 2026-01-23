@@ -105,7 +105,14 @@ export const getTopicsBySubSubject = async (req, res) => {
 // ==========================
 export const getAllTopics = async (req, res) => {
   try {
-    const topics = await Topic.find()
+    const { subSubjectId } = req.query;
+
+    const filter = {};
+    if (subSubjectId) {
+      filter.subSubjectId = subSubjectId; 
+    }
+
+    const topics = await Topic.find(filter)
       .populate({
         path: 'subSubjectId',
         select: 'name subjectId',

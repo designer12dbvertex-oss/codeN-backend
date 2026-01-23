@@ -64,7 +64,7 @@ export const createChapter = async (req, res, next) => {
     }
 
     const chapter = await Chapter.create({
-      courseId, 
+      courseId,
       subSubjectId,
       topicId,
       name: name.trim(),
@@ -201,7 +201,14 @@ export const updateChapter = async (req, res, next) => {
 // ==========================
 export const getAllChapters = async (req, res, next) => {
   try {
-    const chapters = await Chapter.find()
+    const { topicId } = req.query; // 🔥 yeh line add
+
+    const filter = {};
+    if (topicId) {
+      filter.topicId = topicId; // 🔥 yeh line add
+    }
+
+    const chapters = await Chapter.find(filter) // 🔥 yahan filter use karo
       .populate({
         path: 'subSubjectId',
         select: 'name subjectId',
