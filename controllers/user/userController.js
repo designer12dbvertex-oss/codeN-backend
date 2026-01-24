@@ -83,11 +83,14 @@ export const loginByGoogle = async (req, res, next) => {
     }
 
     const { accessToken, refreshToken } = generateToken(user._id); // updated below
-
+    // 🔽 ADD THIS
+    user.refreshToken = refreshToken;
+    await user.save();
     const safeUser = user.toObject();
     delete safeUser.password;
     delete safeUser.otp;
     delete safeUser.otpExpiresAt;
+    delete safeUser.refreshToken;
 
     return res.status(200).json({
       accessToken,
@@ -460,7 +463,7 @@ export const verifyEmail = async (req, res, next) => {
       });
     }
 
-    const { accessToken, refreshToken } = generateToken(user._id);
+    // const { accessToken, refreshToken } = generateToken(user._id);
 
     // ✅ safe user object
     const safeUser = {
@@ -514,8 +517,10 @@ export const login = async (req, res, next) => {
       return res.status(401).json({ message: 'Email not verified' });
     }
 
-    const token = generateToken(user._id);
-    user.refreshToken = token;
+    // const token = generateToken(user._id);
+    // user.refreshToken = token;
+    const { accessToken, refreshToken } = generateToken(user._id);
+    user.refreshToken = refreshToken;
     await user.save();
 
     // ✅ REMOVE sensitive fields
@@ -528,7 +533,9 @@ export const login = async (req, res, next) => {
     res.json({
       message: 'Login successful',
       user: safeUser,
-      token,
+      // token,
+      accessToken,
+      refreshToken,
     });
   } catch (error) {
     next(error);

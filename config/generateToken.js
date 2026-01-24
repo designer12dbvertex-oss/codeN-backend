@@ -1,9 +1,21 @@
+//
+
 import jwt from 'jsonwebtoken';
 
 const generateToken = (userId) => {
-  return jwt.sign({ id: userId }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE || '30d',
-  });
+  const accessToken = jwt.sign(
+    { id: userId },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' } // short lived
+  );
+
+  const refreshToken = jwt.sign(
+    { id: userId },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: '7d' } // long lived
+  );
+
+  return { accessToken, refreshToken };
 };
 
 export default generateToken;
