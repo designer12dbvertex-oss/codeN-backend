@@ -1,3 +1,4 @@
+// models/admin/Test/testModel.js
 import mongoose from 'mongoose';
 
 const testSchema = new mongoose.Schema(
@@ -12,22 +13,11 @@ const testSchema = new mongoose.Schema(
       required: true,
     },
 
-    category: {
-      type: String,
-      enum: ['grand', 'subject'],
-      required: true,
-    },
-
     testMode: {
       type: String,
       enum: ['regular', 'exam'],
       required: true,
     },
-
-    subjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Subject' }],
-    subSubjects: [{ type: mongoose.Schema.Types.ObjectId, ref: 'SubSubject' }],
-    topics: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Topic' }],
-    chapters: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' }],
 
     mcqLimit: { type: Number, required: true, min: 1 },
     timeLimit: { type: Number, default: null },

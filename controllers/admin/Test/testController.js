@@ -10,6 +10,7 @@ import MCQ from '../../../models/admin/MCQs/mcq.model.js';
  * @route  POST /api/admin/tests/create
  *
  */
+
 export const createTest = async (req, res) => {
   console.log('🔥 CREATE TEST HIT');
   console.log('👉 BODY:', req.body);
@@ -20,12 +21,7 @@ export const createTest = async (req, res) => {
       academicYear,
       testTitle,
       courseId,
-      category,
       testMode,
-      subjects = [],
-      subSubjects = [],
-      topics = [],
-      chapters = [],
       mcqLimit,
       timeLimit,
       description,
@@ -52,79 +48,20 @@ export const createTest = async (req, res) => {
         message: 'Time limit is required for Exam Mode',
       });
     }
-    // 🔴 SUBJECT TEST VALIDATION (MISSING)
-    if (category === 'subject') {
-      const hasFilter =
-        subjects.length ||
-        subSubjects.length ||
-        topics.length ||
-        chapters.length;
 
-      if (!hasFilter) {
-        return res.status(400).json({
-          success: false,
-          message:
-            'At least one Subject, Sub-subject, Topic, or Chapter is required',
-        });
-      }
-    }
-
-    // ===== FETCH MCQs =====
-    let mcqFilter = { courseId };
-
-    // 🔴 YAHI CHANGE HAI (field names fix)
-    if (category === 'subject') {
-      if (subjects.length) mcqFilter.subjectId = { $in: subjects };
-      if (subSubjects.length) mcqFilter.subSubjectId = { $in: subSubjects };
-      if (topics.length) mcqFilter.topicId = { $in: topics };
-      if (chapters.length) mcqFilter.chapterId = { $in: chapters };
-    }
-
-    console.log('🔎 MCQ FILTER:', mcqFilter);
-
-    let mcqs = await MCQ.find(mcqFilter).select('_id');
-
-    if (!mcqs.length) {
-      return res.status(404).json({
-        success: false,
-        message: 'No MCQs found for selected criteria',
-      });
-    }
-
-    // 🔴 YAHI CHANGE HAI (strict limit check)
-    if (mcqs.length < mcqLimit) {
-      return res.status(400).json({
-        success: false,
-        message: `Only ${mcqs.length} MCQs available, but ${mcqLimit} requested`,
-      });
-    }
-
-    // Shuffle & limit
-    mcqs = mcqs.sort(() => 0.5 - Math.random()).slice(0, mcqLimit);
-
-    // 🔴 YAHI CHANGE HAI (sirf IDs rakho)
-    const mcqIds = mcqs.map((m) => m._id);
-
-    console.log('📊 MCQS FOUND:', mcqIds.length);
-    console.log('🧩 MCQ IDS:', mcqIds);
-
-    // ===== CREATE TEST =====
+    // ===== CREATE TEST (NO MCQs) =====
     const test = await Test.create({
       month,
       academicYear,
       testTitle,
       courseId,
-      category,
       testMode,
-      subjects,
-      subSubjects,
-      topics,
-      chapters,
       mcqLimit,
       timeLimit: testMode === 'exam' ? timeLimit : null,
-      mcqs: mcqIds, // 🔴 change
-      totalQuestions: mcqIds.length, // 🔴 change
-      description,
+      description: description || '',
+      mcqs: [], // 🔥 empty initially
+      totalQuestions: 0, // 🔥 empty initially
+      status: 'active', // 🔥 start as draft
     });
 
     return res.status(201).json({
@@ -140,7 +77,6 @@ export const createTest = async (req, res) => {
     });
   }
 };
-
 /**
  * @desc   Get Course Filters
  * @route  GET /api/admin/tests/filters/:courseId

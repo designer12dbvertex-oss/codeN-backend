@@ -95,7 +95,7 @@ const userSchema = new mongoose.Schema(
     refreshToken: {
       type: String,
       select: false,
-      default: null
+      default: null,
     },
 
     signUpBy: {
@@ -112,6 +112,19 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    // userModel.js mein mobile field ko is tarah update karein
+    mobile: {
+      type: String,
+      trim: true,
+      unique: true, // Login ke liye unique hona zaroori hai
+      sparse: true, // Taaki null values par error na aaye
+      default: null,
+    },
+    // ... baki fields ke saath ye add karein
+    isMobileVerified: {
       type: Boolean,
       default: false,
     },
