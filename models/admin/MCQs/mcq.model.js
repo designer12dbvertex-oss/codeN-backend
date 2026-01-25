@@ -17,6 +17,11 @@ const mcqSchema = new mongoose.Schema(
       ref: 'SubSubject',
       required: true,
     },
+    testId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Test',
+      required: true,
+    },
     topicId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Topic',
@@ -29,11 +34,7 @@ const mcqSchema = new mongoose.Schema(
     },
     tagId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tag', default: null },
 
-    mode: {
-      type: String,
-      enum: ['regular', 'exam'],
-      default: 'regular', // default regular MCQ
-    },
+    // --- mode removed from schema ---
 
     question: {
       text: { type: String, trim: true },

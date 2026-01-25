@@ -241,12 +241,10 @@ export const getAllTests = async (req, res) => {
  */
 export const getSingleTest = async (req, res) => {
   try {
-    const test = await Test.findById(req.params.id)
-      .populate('courseId', 'name')
-      .populate('subjects', 'name')
-      .populate('subSubjects', 'name')
-      .populate('topics', 'name')
-      .populate('chapters', 'name');
+    const test = await Test.findById(req.params.id).populate(
+      'courseId',
+      'name'
+    );
 
     if (!test) {
       return res.status(404).json({
@@ -255,13 +253,13 @@ export const getSingleTest = async (req, res) => {
       });
     }
 
-    res.json({
+    return res.status(200).json({
       success: true,
       data: test,
     });
   } catch (error) {
     console.error('Get Single Test Error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: 'Failed to fetch test',
     });

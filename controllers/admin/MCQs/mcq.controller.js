@@ -1,4 +1,6 @@
+import mongoose from 'mongoose';
 import MCQ from '../../../models/admin/MCQs/mcq.model.js';
+import Test from '../../../models/admin/Test/testModel.js';
 import Chapter from '../../../models/admin/Chapter/chapter.model.js';
 import Topic from '../../../models/admin/Topic/topic.model.js';
 import SubSubject from '../../../models/admin/Sub-subject/subSubject.model.js';
@@ -8,16 +10,15 @@ import fs from 'fs';
 import path from 'path';
 
 /**
- * @desc    Create a new MCQ with Images and Text
- * @route   POST /api/admin/mcqs
+ * Create MCQ
+ * POST /api/admin/mcqs
  */
 export const createMCQ = async (req, res, next) => {
-  console.log('UPLOADED FILES:', req.files);
   try {
     const {
       chapterId,
       tagId,
-      mode,
+      testId: rawTestId,
       question,
       options,
       correctAnswer,
@@ -29,9 +30,39 @@ export const createMCQ = async (req, res, next) => {
       status,
     } = req.body;
 
-    const files = req.files;
+    // Debug: log testId from payload (if null, fix frontend)
+    console.log('createMCQ req.body.testId', rawTestId);
 
-    // 1️⃣ Verify Chapter & Hierarchy
+    const testId =
+      rawTestId === undefined || rawTestId === null || rawTestId === ''
+        ? null
+        : String(rawTestId).trim() || null;
+
+    if (!testId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Test is required to create MCQ',
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(testId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid test ID format',
+      });
+    }
+
+    const testExists = await Test.findById(testId).select('_id').lean();
+    if (!testExists) {
+      return res.status(404).json({
+        success: false,
+        message: 'Test not found. Please select a valid test.',
+      });
+    }
+
+    const files = req.files || {};
+
+    // Validate chapter & build hierarchy
     const chapter = await Chapter.findById(chapterId);
     if (!chapter)
       return res
@@ -45,25 +76,30 @@ export const createMCQ = async (req, res, next) => {
         .json({ success: false, message: 'Topic not found' });
 
     const subSubject = await SubSubject.findById(chapter.subSubjectId);
-    const subject = await Subject.findById(subSubject?.subjectId);
+    if (!subSubject)
+      return res
+        .status(404)
+        .json({ success: false, message: 'SubSubject not found' });
+
+    const subject = await Subject.findById(subSubject.subjectId);
     if (!subject)
       return res.status(404).json({
         success: false,
         message: 'Full hierarchy (Subject/Course) not found',
       });
 
-    // 2️⃣ Parse JSON strings from FormData
+    // Parse JSON fields if sent as strings (form-data)
     const parsedQuestion =
-      typeof question === 'string' ? JSON.parse(question) : question;
+      typeof question === 'string' ? JSON.parse(question) : question || {};
     const parsedOptions =
-      typeof options === 'string' ? JSON.parse(options) : options;
+      typeof options === 'string' ? JSON.parse(options) : options || [];
     const parsedExplanation = explanation
       ? typeof explanation === 'string'
         ? JSON.parse(explanation)
         : explanation
       : null;
 
-    // 3️⃣ Map Images from req.files
+    // Map files to paths
     const questionImages = files['questionImages']
       ? files['questionImages'].map((f) => `/uploads/mcq-images/${f.filename}`)
       : [];
@@ -73,20 +109,36 @@ export const createMCQ = async (req, res, next) => {
         )
       : [];
 
-    const finalOptions = parsedOptions.map((opt, index) => ({
+    // Build final options (expecting 4)
+    const finalOptions = (parsedOptions || []).map((opt, index) => ({
       text: opt.text || '',
       image: files[`optionImage_${index}`]
         ? `/uploads/mcq-images/${files[`optionImage_${index}`][0].filename}`
         : opt.image || null,
     }));
 
-    // 4️⃣ Create MCQ
+    if (finalOptions.length !== 4) {
+      return res.status(400).json({
+        success: false,
+        message: 'Exactly 4 options are required',
+      });
+    }
+
+    const ans = Number(correctAnswer);
+    if (![0, 1, 2, 3].includes(ans)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid correctAnswer index (0–3 only)',
+      });
+    }
+
+    // Create MCQ (testId validated above)
     const mcq = await MCQ.create({
+      testId,
       courseId: subject.courseId,
       subjectId: subject._id,
       subSubjectId: subSubject._id,
       topicId: topic._id,
-      mode: mode || 'regular',
       chapterId,
       tagId: tagId || null,
       question: {
@@ -94,16 +146,16 @@ export const createMCQ = async (req, res, next) => {
         images: questionImages,
       },
       options: finalOptions,
-      correctAnswer,
+      correctAnswer: ans,
       explanation: {
         text: parsedExplanation?.text || '',
         images: explanationImages,
       },
-
       difficulty: difficulty || 'medium',
       marks: marks || 4,
       negativeMarks: negativeMarks || 1,
-      previousYearTag: previousYearTag === 'true' || previousYearTag === true,
+      previousYearTag:
+        previousYearTag === 'true' || previousYearTag === true || false,
       status: status || 'active',
       createdBy: req.admin._id,
       updatedBy: req.admin._id,
@@ -118,47 +170,120 @@ export const createMCQ = async (req, res, next) => {
 };
 
 /**
- * @desc    Get All MCQs with Filters
- * @route   GET /api/admin/mcqs
+ * Get all MCQs
+ * GET /api/admin/mcqs
+ * Returns test-wise grouped MCQs.
+ * - testId provided: single test (with mcqList); empty test returns { totalMCQs: 0, mcqList: [] }.
+ * - no testId: all MCQs grouped by test (format: test → totalMCQs → mcqList[]).
  */
 export const getAllMCQs = async (req, res, next) => {
   try {
     const {
+      testId,
       courseId,
       subjectId,
       subSubjectId,
       topicId,
-      mode,
       chapterId,
       tagId,
       status,
       difficulty,
     } = req.query;
-    const filter = {};
 
+    const filter = {};
+    if (testId) filter.testId = testId;
     if (courseId) filter.courseId = courseId;
     if (subjectId) filter.subjectId = subjectId;
     if (subSubjectId) filter.subSubjectId = subSubjectId;
     if (topicId) filter.topicId = topicId;
-    if (mode) filter.mode = mode;
     if (chapterId) filter.chapterId = chapterId;
     if (tagId) filter.tagId = tagId;
     if (status) filter.status = status;
     if (difficulty) filter.difficulty = difficulty;
 
     const mcqs = await MCQ.find(filter)
-      .populate('courseId subjectId subSubjectId chapterId tagId', 'name')
+      .populate(
+        'courseId subjectId subSubjectId chapterId tagId testId',
+        'name testTitle'
+      )
       .sort({ createdAt: -1 });
 
-    res.status(200).json({ success: true, count: mcqs.length, data: mcqs });
+    const buildGroup = (tid, tName, list) => ({
+      testId: tid,
+      testName: tName || 'Unknown Test',
+      totalMCQs: list.length,
+      mcqList: list,
+    });
+
+    // —— testId provided: single-test view ——
+    if (testId) {
+      if (mcqs.length > 0) {
+        const ref = mcqs[0].testId;
+        const name = ref?.testTitle || ref?.name || 'Unknown Test';
+        return res.status(200).json({
+          success: true,
+          count: mcqs.length,
+          format: 'test-wise-grouped',
+          data: [buildGroup(testId, name, mcqs)],
+        });
+      }
+
+      const test = await Test.findById(testId).select('testTitle').lean();
+      if (!test) {
+        return res.status(200).json({
+          success: true,
+          count: 0,
+          format: 'test-wise-grouped',
+          data: [],
+        });
+      }
+
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        format: 'test-wise-grouped',
+        data: [
+          buildGroup(testId, test.testTitle || 'Unknown Test', []),
+        ],
+      });
+    }
+
+    // —— no testId: all MCQs grouped by test ——
+    const grouped = {};
+
+    for (const mcq of mcqs) {
+      const t = mcq.testId;
+      const key = t?._id?.toString() ?? 'unassigned';
+      const name = t?.testTitle || t?.name || (key === 'unassigned' ? 'Unassigned' : 'Unknown Test');
+
+      if (!grouped[key]) {
+        grouped[key] = {
+          testId: t?._id ?? null,
+          testName: name,
+          totalMCQs: 0,
+          mcqList: [],
+        };
+      }
+      grouped[key].mcqList.push(mcq);
+      grouped[key].totalMCQs += 1;
+    }
+
+    const testsArray = Object.values(grouped);
+
+    return res.status(200).json({
+      success: true,
+      count: mcqs.length,
+      format: 'test-wise-grouped',
+      data: testsArray,
+    });
   } catch (error) {
     next(error);
   }
 };
 
 /**
- * @desc    Get Single MCQ
- * @route   GET /api/admin/mcqs/:id
+ * Get single MCQ
+ * GET /api/admin/mcqs/:id
  */
 export const getMCQById = async (req, res, next) => {
   try {
@@ -175,8 +300,8 @@ export const getMCQById = async (req, res, next) => {
 };
 
 /**
- * @desc    Update MCQ (Images + Hierarchy + Validation)
- * @route   PUT /api/admin/mcqs/:id
+ * Update MCQ
+ * PUT /api/admin/mcqs/:id
  */
 export const updateMCQ = async (req, res, next) => {
   try {
@@ -188,7 +313,7 @@ export const updateMCQ = async (req, res, next) => {
     const {
       chapterId,
       tagId,
-      mode,
+      // mode removed
       question,
       options,
       explanation,
@@ -197,26 +322,12 @@ export const updateMCQ = async (req, res, next) => {
       ...rest
     } = req.body;
 
+    // strip out any mode if mistakenly sent
+    if ('mode' in rest) delete rest.mode;
+
     const files = req.files || {};
 
-    /* =======================
-       MODE VALIDATION
-    ======================= */
-    if (mode !== undefined) {
-      if (!['regular', 'exam'].includes(mode)) {
-        return res
-          .status(400)
-          .json({
-            success: false,
-            message: 'Invalid mode (regular/exam only)',
-          });
-      }
-      mcq.mode = mode;
-    }
-
-    /* =======================
-       STATUS VALIDATION
-    ======================= */
+    /* STATUS */
     if (status !== undefined) {
       if (!['active', 'inactive'].includes(status)) {
         return res.status(400).json({
@@ -227,9 +338,7 @@ export const updateMCQ = async (req, res, next) => {
       mcq.status = status;
     }
 
-    /* =======================
-       HIERARCHY CHANGE
-    ======================= */
+    /* HIERARCHY CHANGE */
     if (chapterId && chapterId !== mcq.chapterId.toString()) {
       const ch = await Chapter.findById(chapterId);
       if (!ch)
@@ -262,20 +371,15 @@ export const updateMCQ = async (req, res, next) => {
       mcq.chapterId = chapterId;
     }
 
-    /* =======================
-       TAG
-    ======================= */
+    /* TAG */
     if (tagId !== undefined) {
       mcq.tagId = tagId || null;
     }
 
-    /* =======================
-       QUESTION UPDATE
-    ======================= */
+    /* QUESTION UPDATE */
     if (question) {
       const q = typeof question === 'string' ? JSON.parse(question) : question;
 
-      // Replace old images if flag sent
       if (q.replaceImages === true) {
         mcq.question.images.forEach(deleteFile);
         mcq.question.images = [];
@@ -293,9 +397,7 @@ export const updateMCQ = async (req, res, next) => {
       };
     }
 
-    /* =======================
-       OPTIONS UPDATE
-    ======================= */
+    /* OPTIONS UPDATE */
     if (options) {
       const opts = typeof options === 'string' ? JSON.parse(options) : options;
 
@@ -332,9 +434,7 @@ export const updateMCQ = async (req, res, next) => {
       }
     }
 
-    /* =======================
-       EXPLANATION UPDATE
-    ======================= */
+    /* EXPLANATION UPDATE */
     if (explanation) {
       const exp =
         typeof explanation === 'string' ? JSON.parse(explanation) : explanation;
@@ -356,9 +456,7 @@ export const updateMCQ = async (req, res, next) => {
       };
     }
 
-    /* =======================
-       CORRECT ANSWER
-    ======================= */
+    /* CORRECT ANSWER */
     if (correctAnswer !== undefined) {
       const ans = Number(correctAnswer);
       if (![0, 1, 2, 3].includes(ans)) {
@@ -370,9 +468,7 @@ export const updateMCQ = async (req, res, next) => {
       mcq.correctAnswer = ans;
     }
 
-    /* =======================
-       SIMPLE FIELDS
-    ======================= */
+    /* SIMPLE FIELDS */
     Object.assign(mcq, rest);
     mcq.updatedBy = req.admin._id;
 
@@ -388,29 +484,31 @@ export const updateMCQ = async (req, res, next) => {
   }
 };
 
-/**
- * @desc    Delete MCQ (Permanent)
- * @route   DELETE /api/admin/mcqs/:id
- */
+/* Delete helper */
 const deleteFile = (filePath) => {
-  if (filePath && fs.existsSync(path.join(process.cwd(), filePath))) {
-    fs.unlinkSync(path.join(process.cwd(), filePath));
+  if (!filePath) return;
+  const fullPath = path.join(process.cwd(), filePath);
+  if (fs.existsSync(fullPath)) {
+    try {
+      fs.unlinkSync(fullPath);
+    } catch (err) {
+      // log but don't crash
+      console.error('Failed to delete file', fullPath, err);
+    }
   }
 };
 
+/**
+ * Delete MCQ
+ */
 export const deleteMCQ = async (req, res, next) => {
   try {
     const mcq = await MCQ.findById(req.params.id);
     if (!mcq)
       return res.status(404).json({ success: false, message: 'MCQ not found' });
 
-    // 🧹 Question images
     mcq.question?.images?.forEach(deleteFile);
-
-    // 🧹 Option images
     mcq.options?.forEach((opt) => deleteFile(opt.image));
-
-    // 🧹 Explanation images
     mcq.explanation?.images?.forEach(deleteFile);
 
     await mcq.deleteOne();
@@ -422,8 +520,7 @@ export const deleteMCQ = async (req, res, next) => {
 };
 
 /**
- * @desc    Toggle MCQ Status (Active/Inactive)
- * @route   PATCH /api/admin/mcqs/:id/status
+ * Toggle status
  */
 export const toggleMCQStatus = async (req, res, next) => {
   try {
@@ -431,6 +528,13 @@ export const toggleMCQStatus = async (req, res, next) => {
     const mcq = await MCQ.findById(req.params.id);
     if (!mcq)
       return res.status(404).json({ success: false, message: 'MCQ not found' });
+
+    if (!['active', 'inactive'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid status (active/inactive only)',
+      });
+    }
 
     mcq.status = status;
     mcq.updatedBy = req.admin._id;
