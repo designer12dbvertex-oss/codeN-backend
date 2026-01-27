@@ -2306,37 +2306,104 @@ export const updateVideoProgress = async (req, res) => {
  * @route   POST /api/users/generate-custom-test
  */
 
+// export const getCustomPracticeMCQs = async (req, res, next) => {
+//   try {
+//     const { subjectId, tagId, difficulty, mode } = req.body;
+
+//     if (!subjectId) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Subject ID is required' });
+//     }
+
+//     const filter = {
+//       status: 'active',
+//       subjectId: new mongoose.Types.ObjectId(subjectId),
+//     };
+
+//     if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
+//     if (difficulty) filter.difficulty = difficulty;
+//     if (mode) filter.mode = mode;
+   
+
+
+//     console.log("Final Filter:", filter);
+
+//     const mcqs = await MCQ.aggregate([
+//       { $match: filter },
+//       { $sample: { size: 20 } },
+      
+//       {
+//         $lookup: {
+//           from: 'tags', 
+//           localField: 'tagId',
+//           foreignField: '_id',
+//           as: 'tagDetails',
+//         },
+//       },
+//       {
+//         $project: {
+//           question: 1,
+//           options: 1,
+//           correctAnswer: 1,
+//           explanation: 1,
+//           difficulty: 1,
+//           marks: 1,
+//           negativeMarks: 1,
+//           mode: 1,
+//           // Tag details ko readable format mein bhejna
+//           tag: { $arrayElemAt: ['$tagDetails', 0] },
+//         },
+//       },
+//     ]);
+//     const countCheck = await MCQ.countDocuments({ 
+//     subjectId: filter.subjectId, 
+//     tagId: filter.tagId 
+// });
+// console.log("Count for Subject + Tag:", countCheck);
+
+//     res.status(200).json({
+//       success: true,
+//       count: mcqs.length,
+//       mode: mode || 'regular',
+//       isTimerRequired: mode === 'exam',
+//       timerMinutes: 20,
+//       data: mcqs,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
 export const getCustomPracticeMCQs = async (req, res, next) => {
   try {
     const { subjectId, tagId, difficulty, mode } = req.body;
 
     if (!subjectId) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Subject ID is required' });
+      return res.status(400).json({ success: false, message: 'Subject ID is required' });
     }
 
+    // 1. Base Filter (Jo database mein match karega)
     const filter = {
       status: 'active',
       subjectId: new mongoose.Types.ObjectId(subjectId),
     };
 
     if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
-    // if (difficulty) filter.difficulty = difficulty;
-    // if (mode) filter.mode = mode;
+    
+    // Difficulty match (Case-insensitive)
     if (difficulty) {
-  filter.difficulty = { $regex: new RegExp(`^${difficulty}$`, 'i') };
-}
+      filter.difficulty = { $regex: new RegExp(`^${difficulty}$`, 'i') };
+    }
 
-if (mode) {
-  filter.mode = { $regex: new RegExp(`^${mode}$`, 'i') };
-}
-    console.log("Final Filter:", filter);
+    /** * NOTE: Agar aapke MCQ Model mein 'mode' field nahi hai, 
+     * toh filter.mode ko match nahi karenge, warna result 0 aayega.
+     * Hum sirf request se mode lekar frontend ko response bhejenge.
+     */
 
     const mcqs = await MCQ.aggregate([
       { $match: filter },
       { $sample: { size: 20 } },
-      
       {
         $lookup: {
           from: 'tags', 
@@ -2354,26 +2421,26 @@ if (mode) {
           difficulty: 1,
           marks: 1,
           negativeMarks: 1,
-          mode: 1,
-          // Tag details ko readable format mein bhejna
+          // Jo mode user ne request mein bheja hai, wahi har MCQ mein dikhega
+          mode: { $literal: mode || 'regular' },
           tag: { $arrayElemAt: ['$tagDetails', 0] },
         },
       },
     ]);
-    const countCheck = await MCQ.countDocuments({ 
-    subjectId: filter.subjectId, 
-    tagId: filter.tagId 
-});
-console.log("Count for Subject + Tag:", countCheck);
+
+    // 2. Timer Logic based on requested 'mode'
+    // Sirf 'exam' mode hone par hi timer activate hoga
+    const isExamMode = mode?.toLowerCase() === 'exam';
 
     res.status(200).json({
       success: true,
       count: mcqs.length,
-      mode: mode || 'regular',
-      isTimerRequired: mode === 'exam',
-      timerMinutes: 20,
+      requestedMode: mode || 'regular',
+      isTimerRequired: isExamMode, 
+      timerMinutes: isExamMode ? 20 : 0, // Exam mode = 20 mins, Regular = 0
       data: mcqs,
     });
+
   } catch (error) {
     next(error);
   }
