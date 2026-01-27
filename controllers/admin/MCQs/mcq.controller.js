@@ -38,37 +38,33 @@ export const createMCQ = async (req, res, next) => {
         ? null
         : String(rawTestId).trim() || null;
 
-    if (!testId) {
-      return res.status(400).json({
-        success: false,
-        message: 'Test is required to create MCQ',
-      });
-    }
+    let testExists = null;
 
-    if (!mongoose.Types.ObjectId.isValid(testId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid test ID format',
-      });
-    }
+    if (testId) {
+      if (!mongoose.Types.ObjectId.isValid(testId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid test ID format',
+        });
+      }
 
-    const testExists = await Test.findById(testId).select('_id').lean();
-    if (!testExists) {
-      return res.status(404).json({
-        success: false,
-        message: 'Test not found. Please select a valid test.',
-      });
-    }
-    // 🔥 MCQ LIMIT CHECK
-    const test = await Test.findById(testId).select('mcqLimit').lean();
+      testExists = await Test.findById(testId).select('_id mcqLimit').lean();
+      if (!testExists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Test not found. Please select a valid test.',
+        });
+      }
 
-    const currentCount = await MCQ.countDocuments({ testId });
+      // 🔥 MCQ LIMIT CHECK (sirf jab test diya ho)
+      const currentCount = await MCQ.countDocuments({ testId });
 
-    if (currentCount >= Number(test.mcqLimit || 0)) {
-      return res.status(400).json({
-        success: false,
-        message: `MCQ limit reached. This test allows only ${test.mcqLimit} MCQs.`,
-      });
+      if (currentCount >= Number(testExists.mcqLimit || 0)) {
+        return res.status(400).json({
+          success: false,
+          message: `MCQ limit reached. This test allows only ${testExists.mcqLimit} MCQs.`,
+        });
+      }
     }
 
     const files = req.files || {};
@@ -156,7 +152,7 @@ export const createMCQ = async (req, res, next) => {
 
     // Create MCQ (testId validated above)
     const mcq = await MCQ.create({
-      testId,
+      testId: testId || null,
       courseId: subject.courseId,
       subjectId: subject._id,
       subSubjectId: subSubject._id,
@@ -338,6 +334,7 @@ export const updateMCQ = async (req, res, next) => {
       chapterId,
       tagId,
       // mode removed
+      testId,
       question,
       options,
       explanation,
@@ -398,6 +395,29 @@ export const updateMCQ = async (req, res, next) => {
     /* TAG */
     if (tagId !== undefined) {
       mcq.tagId = tagId || null;
+    }
+    /* TEST ATTACH / DETACH */
+    if (testId !== undefined) {
+      const newTestId = testId || null;
+
+      if (newTestId) {
+        if (!mongoose.Types.ObjectId.isValid(newTestId)) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid test ID',
+          });
+        }
+
+        const t = await Test.findById(newTestId).select('_id').lean();
+        if (!t) {
+          return res.status(404).json({
+            success: false,
+            message: 'Test not found',
+          });
+        }
+      }
+
+      mcq.testId = newTestId;
     }
 
     /* QUESTION UPDATE */

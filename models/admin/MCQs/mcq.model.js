@@ -20,7 +20,7 @@ const mcqSchema = new mongoose.Schema(
     testId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Test',
-      required: true,
+      default: null,
     },
     topicId: {
       type: mongoose.Schema.Types.ObjectId,
