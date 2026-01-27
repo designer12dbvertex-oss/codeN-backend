@@ -365,48 +365,42 @@ const finalizeAndSubmitAttempt = async (attempt, submitter = 'AUTO') => {
   if (!attempt) return null;
   if (attempt.submittedAt) return attempt;
 
-  // Fetch test MCQs to compute correct answers
   const test = await Test.findById(attempt.testId).lean();
-  if (!test) {
-    // fallback: compute from stored isCorrect flags
-    const fallbackScore = (attempt.answers || []).filter(
-      (a) => a.isCorrect
-    ).length;
-    attempt.score = fallbackScore;
-    attempt.submittedAt = new Date();
-    attempt.submittedBy = submitter;
-    await attempt.save();
-    return attempt;
-  }
-
-  const mcqs = await MCQ.find({ _id: { $in: test.mcqs } }).lean();
-  const mcqMap = new Map(mcqs.map((m) => [m._id.toString(), m]));
 
   let score = 0;
-  // For each test.mcqs (maintains order and counts not attempted)
-  for (const mcqId of test.mcqs) {
-    const qid = mcqId.toString();
-    const mcqDoc = mcqMap.get(qid);
-    const userAns = (attempt.answers || []).find(
-      (a) => a.mcqId?.toString() === qid
-    );
 
-    if (!userAns) continue;
-    // If mcqDoc exists, validate correctness by comparing indices
-    if (mcqDoc) {
-      if (Number(userAns.selectedOption) === Number(mcqDoc.correctAnswer)) {
-        score += 1;
+  if (test && Array.isArray(test.mcqs) && test.mcqs.length) {
+    // NORMAL CASE
+    const mcqs = await MCQ.find({ _id: { $in: test.mcqs } }).lean();
+    const mcqMap = new Map(mcqs.map((m) => [m._id.toString(), m]));
+
+    for (const mcqId of test.mcqs) {
+      const qid = mcqId.toString();
+      const mcqDoc = mcqMap.get(qid);
+      const userAns = (attempt.answers || []).find(
+        (a) => a.mcqId?.toString() === qid
+      );
+
+      if (!userAns) continue;
+
+      if (mcqDoc) {
+        if (Number(userAns.selectedOption) === Number(mcqDoc.correctAnswer)) {
+          score += 1;
+        }
+      } else {
+        if (userAns.isCorrect) score += 1;
       }
-    } else {
-      // fallback to stored isCorrect flag if MCQ doc missing
-      if (userAns.isCorrect) score += 1;
     }
+  } else {
+    // 🔥 FALLBACK CASE (jab test.mcqs empty ho)
+    score = (attempt.answers || []).filter((a) => a.isCorrect).length;
   }
 
   attempt.score = score;
   attempt.submittedAt = new Date();
   attempt.submittedBy = submitter;
   await attempt.save();
+
   return attempt;
 };
 
@@ -883,7 +877,18 @@ export const submitTest = async (req, res) => {
     const finalAttempt = await finalizeAndSubmitAttempt(attempt, 'MANUAL');
 
     const test = await Test.findById(attempt.testId).lean();
-    const totalQuestions = (test?.mcqs || []).length;
+
+    let totalQuestions = 0;
+
+    if (test && Array.isArray(test.mcqs) && test.mcqs.length) {
+      totalQuestions = test.mcqs.length;
+    } else {
+      // 🔥 fallback: MCQ collection se count lo
+      totalQuestions = await MCQ.countDocuments({
+        testId: attempt.testId,
+        status: 'active',
+      });
+    }
 
     // Recompute stats
     let correctAnswer = 0;
@@ -918,17 +923,16 @@ export const submitTest = async (req, res) => {
         }
       }
     } else {
-      // fallback: derive counts from stored answers
+      // 🔥 fallback: derive counts from attempt.answers
       correctAnswer = (finalAttempt.answers || []).filter(
         (a) => a.isCorrect === true
       ).length;
+
       wrongAnswer = (finalAttempt.answers || []).filter(
         (a) => a.isCorrect === false
       ).length;
-      notAttempt = Math.max(
-        0,
-        (finalAttempt.answers || []).length - (correctAnswer + wrongAnswer)
-      );
+
+      notAttempt = Math.max(0, totalQuestions - (correctAnswer + wrongAnswer));
     }
 
     const solvedMcq = correctAnswer + wrongAnswer;
@@ -1108,5 +1112,43 @@ export const getTestReview = async (req, res) => {
   } catch (error) {
     console.error('getTestReview error:', error);
     return res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getAttemptAnswers = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(attemptId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid attempt id',
+      });
+    }
+
+    const attempt = await TestAttempt.findById(attemptId).lean();
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attempt not found',
+      });
+    }
+
+    return res.json({
+      success: true,
+      attemptId: attempt._id,
+      submittedAt: attempt.submittedAt || null,
+      answers: (attempt.answers || []).map((a) => ({
+        mcqId: a.mcqId,
+        selectedOption: a.selectedOption,
+        isCorrect: a.isCorrect,
+      })),
+    });
+  } catch (err) {
+    console.error('getAttemptAnswers error:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch attempt answers',
+    });
   }
 };

@@ -34,6 +34,7 @@ import {
   getAvailableTests,
   startTest,
   getNextQuestion,
+  getAttemptAnswers,
   submitAnswer,
   submitTest,
   getTestResult,
@@ -56,13 +57,19 @@ router.post('/exam/:testId/start', protect, startTest);
 // Legacy / Sequential Flow: next question
 router.get('/attempt/:attemptId/question', protect, getNextQuestion);
 
+
+router.get('/attempt/:attemptId/answers', protect, getAttemptAnswers);
+
 // Submit Answer (keeps existing route signature)
 // Accepts:
 //  - { mcqId, optionId }   -> update/overwrite specified mcq
 //  - OR { selectedOption } -> legacy sequential behavior using currentIndex
 router.post('/attempt/:attemptId/answer', protect, submitAnswer);
 
+
 // Submit Test (manual)
 router.post('/attempt/:attemptId/submit', protect, submitTest);
+
+
 
 export default router;
