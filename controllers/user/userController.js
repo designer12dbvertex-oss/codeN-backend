@@ -376,7 +376,7 @@ export const register = async (req, res, next) => {
     }
 
     const emailOtp = generateOtp();
-    const mobileOtp = generateOtp();
+    // const mobileOtp = generateOtp();
 
     const [user] = await UserModel.create(
       [
@@ -387,10 +387,11 @@ export const register = async (req, res, next) => {
           otp: emailOtp,
           otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
 
+          // mobile,
+          // mobileOtp,
+          // mobileOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
           mobile,
-          mobileOtp,
-          mobileOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-
+          isMobileVerified: true, // ✅ auto-verify mobile
           address,
           countryId,
           stateId,
@@ -411,7 +412,7 @@ export const register = async (req, res, next) => {
     await sendFormEmail(normalizedEmail, emailOtp);
 
     // 🔽 TEMP: CONSOLE MOBILE OTP
-    console.log(`📱 Mobile OTP for ${mobile}: ${mobileOtp}`);
+    // console.log(`📱 Mobile OTP for ${mobile}: ${mobileOtp}`);
 
     /*
 ==============================
@@ -575,11 +576,17 @@ export const login = async (req, res, next) => {
         return res.status(401).json({ message: 'Email not verified' });
     }
 
+    // if (mobile) {
+    //   user = await UserModel.findOne({ mobile }).select('+password');
+    //   if (!user) return res.status(404).json({ message: 'User not found' });
+    //   if (!user.isMobileVerified)
+    //     return res.status(401).json({ message: 'Mobile not verified' });
+    // }
+
     if (mobile) {
       user = await UserModel.findOne({ mobile }).select('+password');
       if (!user) return res.status(404).json({ message: 'User not found' });
-      if (!user.isMobileVerified)
-        return res.status(401).json({ message: 'Mobile not verified' });
+      // ✅ mobile verification check removed
     }
 
     if (user.status !== 'active') {
@@ -672,29 +679,29 @@ export const resendOtp = async (req, res, next) => {
 
     // 6️⃣ Generate OTPs
     const emailOtp = generateOtp();
-    const mobileOtp = generateOtp();
+    // const mobileOtp = generateOtp();
 
     // 7️⃣ Save OTPs
     user.otp = emailOtp;
     user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    user.mobileOtp = mobileOtp;
-    user.mobileOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    // user.mobileOtp = mobileOtp;
+    // user.mobileOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
     // 8️⃣ Send based on mode
     if (mode === 'email') {
       await sendFormEmail(user.email, emailOtp);
     }
 
-    if (mode === 'mobile') {
-      // 🔽 TEMP: CONSOLE MOBILE OTP
-      console.log(`📱 Resent Mobile OTP for ${user.mobile}: ${mobileOtp}`);
+    // if (mode === 'mobile') {
+    //   // 🔽 TEMP: CONSOLE MOBILE OTP
+    //   console.log(`📱 Resent Mobile OTP for ${user.mobile}: ${mobileOtp}`);
 
-      /*
-        HERE PAID SMS CODE AAYEGA
-        await sendSms(user.mobile, `Your OTP is ${mobileOtp}`);
-      */
-    }
+    //   /*
+    //     HERE PAID SMS CODE AAYEGA
+    //     await sendSms(user.mobile, `Your OTP is ${mobileOtp}`);
+    //   */
+    // }
 
     await user.save();
 

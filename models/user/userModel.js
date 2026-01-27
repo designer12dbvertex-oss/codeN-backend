@@ -128,11 +128,16 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
-    // ... baki fields ke saath ye add karein
+    // // ... baki fields ke saath ye add karein
+    // isMobileVerified: {
+    //   type: Boolean,
+    //   default: false,
+    // },
     isMobileVerified: {
       type: Boolean,
-      default: false,
+      default: true, // ✅ no mobile OTP system
     },
+
     subscription: {
       plan_id: {
         type: mongoose.Schema.Types.ObjectId,
