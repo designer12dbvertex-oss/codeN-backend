@@ -22,6 +22,7 @@ import Rating from '../../models/admin/Rating.js';
 import Course from '../../models/admin/Course/course.model.js';
 import Video from '../../models/admin/Video/video.model.js';
 import VideoProgress from '../../models/admin/Video/videoprogess.js';
+import Tag from '../../models/admin/Tags/tag.model.js';
 
 export const loginByGoogle = async (req, res, next) => {
   try {
@@ -2314,16 +2315,24 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
     };
 
     if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
-    if (difficulty) filter.difficulty = difficulty;
-    if (mode) filter.mode = mode;
+    // if (difficulty) filter.difficulty = difficulty;
+    // if (mode) filter.mode = mode;
+    if (difficulty) {
+  filter.difficulty = { $regex: new RegExp(`^${difficulty}$`, 'i') };
+}
+
+if (mode) {
+  filter.mode = { $regex: new RegExp(`^${mode}$`, 'i') };
+}
+    console.log("Final Filter:", filter);
 
     const mcqs = await MCQ.aggregate([
       { $match: filter },
       { $sample: { size: 20 } },
-      // --- TAGS ki details nikalne ke liye Lookup ---
+      
       {
         $lookup: {
-          from: 'tags', // Aapke Tags collection ka naam (check in MongoDB)
+          from: 'tags', 
           localField: 'tagId',
           foreignField: '_id',
           as: 'tagDetails',
@@ -2344,6 +2353,11 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
         },
       },
     ]);
+    const countCheck = await MCQ.countDocuments({ 
+    subjectId: filter.subjectId, 
+    tagId: filter.tagId 
+});
+console.log("Count for Subject + Tag:", countCheck);
 
     res.status(200).json({
       success: true,
@@ -2391,6 +2405,22 @@ export const getDailyMCQ = async (req, res, next) => {
     next(error);
   }
 };
+export const getAllTagsForUsers = async (req, res, next) => {
+  try {
+    // Users ke liye hum aksar A-Z sort karte hain taaki list readable ho
+    const tags = await Tag.find().select('name _id').sort({ name: 1 });
+    
+    res.status(200).json({ 
+      success: true, 
+      count: tags.length,
+      data: tags 
+    });
+  } catch (error) { 
+    next(error); 
+  }
+};
+
+
 // export const getCustomPracticeMCQs = async (req, res, next) => {
 //   try {
 //     const {
@@ -2452,3 +2482,36 @@ export const getDailyMCQ = async (req, res, next) => {
 //     next(error);
 //   }
 // };
+export const getChapterFullDetails = async (req, res, next) => {
+  try {
+    const { chapterId } = req.params;
+
+    // 1. Chapter ki details find karein
+    // 2. Videos ko populate karein (Jo is chapterId se match karti hon)
+    const chapterDetails = await Chapter.findById(chapterId)
+      .populate('courseId', 'name') // Optional: Course ka naam chahiye toh
+      .populate('topicId', 'name');
+
+    if (!chapterDetails) {
+      return res.status(404).json({ success: false, message: 'Chapter not found' });
+    }
+
+    // 3. Is Chapter se judi saari videos fetch karein
+    const videos = await Video.find({ chapterId: chapterId }).sort({ order: 1 });
+
+    // 4. Sab kuch combine karke response bhejein
+    res.status(200).json({
+      success: true,
+      data: {
+        ...chapterDetails._doc, // Chapter info (name, desc, image, mcqs)
+        content: {
+          videos: videos, // Saari videos with notesUrl and thumbnailUrl
+          totalVideos: videos.length,
+          // Agar notes alag model mein hain toh yahan populate kar sakte hain
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

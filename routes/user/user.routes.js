@@ -27,6 +27,9 @@ import {
   logout,
   updateVideoProgress,
   getDailyMCQ,
+  getAllTagsForUsers,
+  getChapterFullDetails
+
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -365,6 +368,8 @@ userRouter.get('/slug', getSlugByQuery);
 userRouter.get('/about-us', getAboutUs);
 userRouter.get('/privacy-policy', getPrivacyPolicy);
 userRouter.get('/terms-conditions', getTerms);
+userRouter.get('/alltag', getAllTagsForUsers);
+userRouter.get('/details/:chapterId', getChapterFullDetails);
 
 /* ================= EDUCATIONAL CONTENT ================= */
 
