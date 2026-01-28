@@ -125,7 +125,7 @@ app.use('/api/admin', PaymentList);
 
 // Shared/Other Routes
 app.use('/api/location', locationRoutes);
-app.use('/api/bookmarks', bookmarkRoutes);
+// app.use('/api/bookmarks', bookmarkRoutes);
 app.use('/api/plans', subscriptionRoutes);
 
 // User Specific Routes
