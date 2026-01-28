@@ -38,6 +38,7 @@ import {
   submitAnswer,
   submitTest,
   getTestResult,
+  submitTestByChapter,
   getTestReview,
 } from '../../controllers/user/testAttemptController.js';
 import { protect } from '../../middleware/authMiddleware.js';
@@ -57,7 +58,6 @@ router.post('/exam/:testId/start', protect, startTest);
 // Legacy / Sequential Flow: next question
 router.get('/attempt/:attemptId/question', protect, getNextQuestion);
 
-
 router.get('/attempt/:attemptId/answers', protect, getAttemptAnswers);
 
 // Submit Answer (keeps existing route signature)
@@ -66,10 +66,9 @@ router.get('/attempt/:attemptId/answers', protect, getAttemptAnswers);
 //  - OR { selectedOption } -> legacy sequential behavior using currentIndex
 router.post('/attempt/:attemptId/answer', protect, submitAnswer);
 
-
 // Submit Test (manual)
 router.post('/attempt/:attemptId/submit', protect, submitTest);
 
-
+router.post('/submit-Qtest', protect, submitTestByChapter);
 
 export default router;

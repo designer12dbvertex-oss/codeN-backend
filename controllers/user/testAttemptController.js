@@ -1155,3 +1155,73 @@ export const getAttemptAnswers = async (req, res) => {
     });
   }
 };
+
+export const submitTestByChapter = async (req, res) => {
+  try {
+    const { chapterId, answers } = req.body;
+
+    // 1️⃣ Validation
+    if (!chapterId || !Array.isArray(answers)) {
+      return res.status(400).json({
+        success: false,
+        message: 'chapterId and answers array are required',
+      });
+    }
+
+    // 2️⃣ Chapter ke MCQs lao
+    const mcqs = await MCQ.find({
+      chapterId,
+      status: 'active',
+    }).select('_id correctAnswer');
+
+    if (mcqs.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No MCQs found for this chapter',
+      });
+    }
+
+    // 3️⃣ Result calculation
+    let correct = 0;
+    let incorrect = 0;
+    let notAttempted = 0;
+
+    mcqs.forEach((mcq) => {
+      const userAnswer = answers.find((a) => a.mcqId === mcq._id.toString());
+
+      if (
+        !userAnswer ||
+        userAnswer.selectedIndex === null ||
+        userAnswer.selectedIndex === undefined
+      ) {
+        notAttempted++;
+      } else if (userAnswer.selectedIndex === mcq.correctAnswer) {
+        correct++;
+      } else {
+        incorrect++;
+      }
+    });
+
+    const total = mcqs.length;
+    const percentage = ((correct / total) * 100).toFixed(2);
+
+    // 4️⃣ Response
+    return res.status(200).json({
+      success: true,
+      message: 'Test submitted successfully',
+      result: {
+        totalQuestions: total,
+        correct,
+        incorrect,
+        notAttempted,
+        scorePercentage: percentage,
+      },
+    });
+  } catch (error) {
+    console.error('submitTestByChapter error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to submit test',
+    });
+  }
+};

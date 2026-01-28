@@ -22,6 +22,7 @@ import {
   postRating,
   getAllSubSubjectsForUser,
   getChaptersByTopicForUser,
+  // submitTestByChapter,
   getMe,
   getCourseListSimple,
   logout,
@@ -444,7 +445,7 @@ userRouter.get('/get-mcqs', getMcqsByChapter);
  *                   type: object
  */
 userRouter.post('/submit-test', testLimiter, submitTest);
-
+// userRouter.post('/submit-Qtest', protect, submitTestByChapter);
 /* ================= SUBSCRIPTION ROUTES ================= */
 
 userRouter.get('/get-plans', getActivePlans);

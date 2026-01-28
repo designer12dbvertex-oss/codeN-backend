@@ -2772,3 +2772,10 @@ export const getChapterFullDetails = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * @desc    Submit test by chapter (simple submit)
+ * @route   POST /api/tests/submit-test
+ * @access  Protected
+ */
+
