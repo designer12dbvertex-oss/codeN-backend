@@ -30,6 +30,11 @@ import {
   getDailyMCQ,
   getAllTagsForUsers,
   getChapterFullDetails,
+    addBookmark,
+  removeBookmark,
+  getMyBookmarks,
+  toggleBookmark,
+  getBookmarkSummary, getBookmarksList 
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -492,6 +497,120 @@ userRouter.get('/my-subscription', protect, getMySubscription);
  *       200:
  *         description: Subscription activated
  */
+
+
+
+
+
+/**
+ * @swagger
+ * tags:
+ *   name: User Bookmarks
+ *   description: APIs for users to save/bookmark MCQs, Pearls, or Chapters for later review
+ */
+
+// Sabhi routes login protected hain
+
+
+/**
+ * @swagger
+ * /api/bookmarks:
+ *   post:
+ *     summary: Add a new bookmark
+ *     tags: [User Bookmarks]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - itemId
+ *               - itemType
+ *             properties:
+ *               itemId:
+ *                 type: string
+ *                 description: The ID of the MCQ or Pearl being bookmarked
+ *               itemType:
+ *                 type: string
+ *                 enum: [MCQ, Pearl]
+ *                 description: Specify if the item is an MCQ or a Pearl
+ *     responses:
+ *       201:
+ *         description: Bookmarked successfully
+ *       401:
+ *         description: Unauthorized
+ */
+userRouter.post('/', protect,addBookmark);
+
+/**
+ * @swagger
+ * /api/bookmarks:
+ *   delete:
+ *     summary: Remove a bookmark
+ *     tags: [User Bookmarks]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: itemId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the bookmarked item to remove
+ *     responses:
+ *       200:
+ *         description: Bookmark removed successfully
+ */
+userRouter.delete('/', removeBookmark);
+
+/**
+ * @swagger
+ * /api/bookmarks:
+ *   get:
+ *     summary: Get all bookmarked items of the logged-in user
+ *     tags: [User Bookmarks]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of bookmarks fetched successfully
+ */
+userRouter.get('/', getMyBookmarks);
+
+/**
+ * @swagger
+ * /api/bookmarks/toggle:
+ *   post:
+ *     summary: Toggle bookmark status (Add/Remove)
+ *     description: If the item is already bookmarked, it will be removed. If not, it will be added.
+ *     tags: [User Bookmarks]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - itemId
+ *             properties:
+ *               itemId:
+ *                 type: string
+ *               itemType:
+ *                 type: string
+ *                 enum: [MCQ, Pearl]
+ *     responses:
+ *       200:
+ *         description: Bookmark toggled successfully
+ */
+// router.post('/toggle', toggleBookmark);
+userRouter.post('/toggle', protect,toggleBookmark);
+userRouter.get('/summary',protect, getBookmarkSummary);
+userRouter.get('/list', protect ,getBookmarksList);
 
 userRouter.post('/buy-plan', protect, buySubscription);
 userRouter.get('/about-us', getAboutUs);

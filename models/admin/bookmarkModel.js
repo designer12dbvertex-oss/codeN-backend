@@ -4,21 +4,20 @@ const bookmarkSchema = new mongoose.Schema(
   {
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
     
-    // 1. Type: Kya bookmark kiya hai?
     type: { 
       type: String, 
       enum: ["mcq", "chapter", "topic", "sub-subject"], 
       required: true 
     },
 
-    // 2. Category: Kis folder mein dikhana hai?
+    
     category: { 
       type: String, 
       enum: ["important", "veryimportant", "mostimportant"], 
       required: true 
     },
 
-    // Reference IDs (Jis type ka bookmark hoga, wahi ID fill hogi)
+    
     mcqId: { type: mongoose.Schema.Types.ObjectId, ref: "MCQ", default: null },
     chapterId: { type: mongoose.Schema.Types.ObjectId, ref: "Chapter", default: null },
     topicId: { type: mongoose.Schema.Types.ObjectId, ref: "Topic", default: null }, // Naya Field
@@ -27,7 +26,7 @@ const bookmarkSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Unique Index: Ek user, ek item ko ek hi category mein do baar bookmark na kar sake
+
 bookmarkSchema.index(
   { userId: 1, type: 1, category: 1, mcqId: 1, topicId: 1, chapterId: 1, subSubjectId: 1 },
   { unique: true }
