@@ -587,7 +587,9 @@ export const startTest = async (req, res) => {
       const mcqs = await MCQ.find({
         _id: { $in: test.mcqs },
         status: 'active',
-      }).lean();
+      })
+        .populate('tagId', 'name')
+        .lean();
 
       const mcqMap = new Map(mcqs.map((m) => [m._id.toString(), m]));
 
@@ -602,6 +604,7 @@ export const startTest = async (req, res) => {
         testId: test._id,
         status: 'active',
       })
+        .populate('tagId', 'name')
         .sort({ createdAt: 1 }) // or questionOrder if exists
         .lean();
     }
@@ -623,7 +626,7 @@ export const startTest = async (req, res) => {
         name: opt?.text || '',
         image: opt?.image || null,
       })),
-      tag: m.tagId || null,
+      tag: m.tagId?.name || null,
       selectedOption: answersMap.has(m._id.toString())
         ? answersMap.get(m._id.toString())
         : null,

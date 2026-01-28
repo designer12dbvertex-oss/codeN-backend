@@ -32,7 +32,10 @@ const mcqSchema = new mongoose.Schema(
       ref: 'Chapter',
       required: true,
     },
-    tagId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tag', default: null },
+    tagId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Tag', // 🔥 YE LINE MISSING / GALAT THI
+    },
     tags: [{ type: String }],
     // --- mode removed from schema ---
 
