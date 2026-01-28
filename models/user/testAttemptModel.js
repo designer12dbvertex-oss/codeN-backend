@@ -50,9 +50,18 @@ const testAttemptSchema = new mongoose.Schema(
     testId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Test',
-      required: true,
+      default: null,
     },
-
+    chapterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Chapter',
+      default: null, // 👈 NEW
+    },
+    mode: {
+      type: String,
+      enum: ['exam', 'regular'],
+      default: 'exam', // 👈 NEW
+    },
     // For sequential flows (legacy compatibility)
     currentIndex: {
       type: Number,

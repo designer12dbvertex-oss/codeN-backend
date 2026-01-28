@@ -28,8 +28,7 @@ import {
   updateVideoProgress,
   getDailyMCQ,
   getAllTagsForUsers,
-  getChapterFullDetails
-
+  getChapterFullDetails,
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -407,7 +406,11 @@ userRouter.get(
   '/topics-with-chapters/sub-subject/:subSubjectId',
   getTopicsWithChaptersForUser
 );
-userRouter.get('/chapters-by-topic/:topicId', getChaptersByTopicForUser);
+userRouter.get(
+  '/chapters-by-topic/:topicId',
+  protect,
+  getChaptersByTopicForUser
+);
 userRouter.get('/topics', getAllTopicsForUser);
 userRouter.get('/topics/chapter/:chapterId', getTopicsByChapterForUser);
 userRouter.get('/topics/:id', getSingleTopicForUser);

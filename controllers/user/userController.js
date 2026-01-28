@@ -23,6 +23,7 @@ import Course from '../../models/admin/Course/course.model.js';
 import Video from '../../models/admin/Video/video.model.js';
 import VideoProgress from '../../models/admin/Video/videoprogess.js';
 import Tag from '../../models/admin/Tags/tag.model.js';
+import TestAttempt from '../../models/user/testAttemptModel.js';
 
 export const loginByGoogle = async (req, res, next) => {
   try {
@@ -1567,9 +1568,107 @@ export const getSingleTopicForUser = async (req, res) => {
     });
   }
 };
+// export const getChaptersByTopicForUser = async (req, res) => {
+//   try {
+//     const { topicId } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(topicId)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid topicId',
+//       });
+//     }
+
+//     // 1️⃣ Fetch Chapters
+//     const chapters = await Chapter.find({
+//       topicId,
+//       status: 'active',
+//     })
+//       .select('_id name order image') // 👈 image add
+//       .sort({ order: 1 })
+//       .lean();
+
+//     const chapterIds = chapters.map((c) => c._id);
+
+//     // 2️⃣ MCQ Count per Chapter
+//     const mcqCounts = await MCQ.aggregate([
+//       {
+//         $match: {
+//           chapterId: { $in: chapterIds },
+//           status: 'active',
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: '$chapterId',
+//           totalMcq: { $sum: 1 },
+//         },
+//       },
+//     ]);
+
+//     // 3️⃣ Rating per Chapter (from MCQs avg rating OR Video ratings if needed)
+//     const ratings = await Rating.aggregate([
+//       {
+//         $lookup: {
+//           from: 'videos',
+//           localField: 'videoId',
+//           foreignField: '_id',
+//           as: 'video',
+//         },
+//       },
+//       { $unwind: '$video' },
+//       {
+//         $match: {
+//           'video.chapterId': { $in: chapterIds },
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: '$video.chapterId',
+//           avgRating: { $avg: '$rating' },
+//         },
+//       },
+//     ]);
+
+//     const baseUrl = `${req.protocol}://${req.get('host')}`;
+
+//     // 4️⃣ Merge Everything
+//     const formattedChapters = chapters.map((chapter) => {
+//       const mcqData = mcqCounts.find(
+//         (m) => m._id.toString() === chapter._id.toString()
+//       );
+
+//       const ratingData = ratings.find(
+//         (r) => r._id.toString() === chapter._id.toString()
+//       );
+
+//       return {
+//         chapterId: chapter._id,
+//         chapterName: chapter.name,
+//         chapterImage: chapter.image ? `${baseUrl}${chapter.image}` : null,
+//         totalMcq: mcqData ? mcqData.totalMcq : 0,
+//         rating: ratingData ? Number(ratingData.avgRating.toFixed(1)) : 0,
+//         order: chapter.order,
+//       };
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       count: formattedChapters.length,
+//       data: formattedChapters,
+//     });
+//   } catch (error) {
+//     console.error('Get Chapters By Topic Error:', error);
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
 export const getChaptersByTopicForUser = async (req, res) => {
   try {
     const { topicId } = req.params;
+    const userId = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
       return res.status(400).json({
@@ -1578,18 +1677,18 @@ export const getChaptersByTopicForUser = async (req, res) => {
       });
     }
 
-    // 1️⃣ Fetch Chapters
+    // 1️⃣ Chapters
     const chapters = await Chapter.find({
       topicId,
       status: 'active',
     })
-      .select('_id name order image') // 👈 image add
+      .select('_id name order image')
       .sort({ order: 1 })
       .lean();
 
     const chapterIds = chapters.map((c) => c._id);
 
-    // 2️⃣ MCQ Count per Chapter
+    // 2️⃣ MCQ count
     const mcqCounts = await MCQ.aggregate([
       {
         $match: {
@@ -1605,7 +1704,15 @@ export const getChaptersByTopicForUser = async (req, res) => {
       },
     ]);
 
-    // 3️⃣ Rating per Chapter (from MCQs avg rating OR Video ratings if needed)
+    // 3️⃣ User Attempts (IMPORTANT PART)
+    const attempts = await TestAttempt.find({
+      userId,
+      chapterId: { $in: chapterIds },
+    })
+      .select('chapterId answers submittedAt')
+      .lean();
+
+    // 4️⃣ Rating
     const ratings = await Rating.aggregate([
       {
         $lookup: {
@@ -1631,7 +1738,7 @@ export const getChaptersByTopicForUser = async (req, res) => {
 
     const baseUrl = `${req.protocol}://${req.get('host')}`;
 
-    // 4️⃣ Merge Everything
+    // 5️⃣ Final merge
     const formattedChapters = chapters.map((chapter) => {
       const mcqData = mcqCounts.find(
         (m) => m._id.toString() === chapter._id.toString()
@@ -1641,11 +1748,25 @@ export const getChaptersByTopicForUser = async (req, res) => {
         (r) => r._id.toString() === chapter._id.toString()
       );
 
+      const attempt = attempts.find(
+        (a) => a.chapterId?.toString() === chapter._id.toString()
+      );
+
+      let status = 'NOT_STARTED';
+      let attemptedMcq = 0;
+
+      if (attempt) {
+        attemptedMcq = attempt.answers?.length || 0;
+        status = attempt.submittedAt ? 'COMPLETED' : 'IN_PROGRESS';
+      }
+
       return {
         chapterId: chapter._id,
         chapterName: chapter.name,
         chapterImage: chapter.image ? `${baseUrl}${chapter.image}` : null,
         totalMcq: mcqData ? mcqData.totalMcq : 0,
+        attemptedMcq,
+        status,
         rating: ratingData ? Number(ratingData.avgRating.toFixed(1)) : 0,
         order: chapter.order,
       };
@@ -2324,18 +2445,16 @@ export const updateVideoProgress = async (req, res) => {
 //     if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
 //     if (difficulty) filter.difficulty = difficulty;
 //     if (mode) filter.mode = mode;
-   
-
 
 //     console.log("Final Filter:", filter);
 
 //     const mcqs = await MCQ.aggregate([
 //       { $match: filter },
 //       { $sample: { size: 20 } },
-      
+
 //       {
 //         $lookup: {
-//           from: 'tags', 
+//           from: 'tags',
 //           localField: 'tagId',
 //           foreignField: '_id',
 //           as: 'tagDetails',
@@ -2356,9 +2475,9 @@ export const updateVideoProgress = async (req, res) => {
 //         },
 //       },
 //     ]);
-//     const countCheck = await MCQ.countDocuments({ 
-//     subjectId: filter.subjectId, 
-//     tagId: filter.tagId 
+//     const countCheck = await MCQ.countDocuments({
+//     subjectId: filter.subjectId,
+//     tagId: filter.tagId
 // });
 // console.log("Count for Subject + Tag:", countCheck);
 
@@ -2380,7 +2499,9 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
     const { subjectId, tagId, difficulty, mode } = req.body;
 
     if (!subjectId) {
-      return res.status(400).json({ success: false, message: 'Subject ID is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Subject ID is required' });
     }
 
     // 1. Base Filter (Jo database mein match karega)
@@ -2390,13 +2511,13 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
     };
 
     if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
-    
+
     // Difficulty match (Case-insensitive)
     if (difficulty) {
       filter.difficulty = { $regex: new RegExp(`^${difficulty}$`, 'i') };
     }
 
-    /** * NOTE: Agar aapke MCQ Model mein 'mode' field nahi hai, 
+    /** * NOTE: Agar aapke MCQ Model mein 'mode' field nahi hai,
      * toh filter.mode ko match nahi karenge, warna result 0 aayega.
      * Hum sirf request se mode lekar frontend ko response bhejenge.
      */
@@ -2406,7 +2527,7 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
       { $sample: { size: 20 } },
       {
         $lookup: {
-          from: 'tags', 
+          from: 'tags',
           localField: 'tagId',
           foreignField: '_id',
           as: 'tagDetails',
@@ -2436,11 +2557,10 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
       success: true,
       count: mcqs.length,
       requestedMode: mode || 'regular',
-      isTimerRequired: isExamMode, 
+      isTimerRequired: isExamMode,
       timerMinutes: isExamMode ? 20 : 0, // Exam mode = 20 mins, Regular = 0
       data: mcqs,
     });
-
   } catch (error) {
     next(error);
   }
@@ -2483,17 +2603,16 @@ export const getAllTagsForUsers = async (req, res, next) => {
   try {
     // Users ke liye hum aksar A-Z sort karte hain taaki list readable ho
     const tags = await Tag.find().select('name _id').sort({ name: 1 });
-    
-    res.status(200).json({ 
-      success: true, 
+
+    res.status(200).json({
+      success: true,
       count: tags.length,
-      data: tags 
+      data: tags,
     });
-  } catch (error) { 
-    next(error); 
+  } catch (error) {
+    next(error);
   }
 };
-
 
 // export const getCustomPracticeMCQs = async (req, res, next) => {
 //   try {
@@ -2567,11 +2686,15 @@ export const getChapterFullDetails = async (req, res, next) => {
       .populate('topicId', 'name');
 
     if (!chapterDetails) {
-      return res.status(404).json({ success: false, message: 'Chapter not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Chapter not found' });
     }
 
     // 3. Is Chapter se judi saari videos fetch karein
-    const videos = await Video.find({ chapterId: chapterId }).sort({ order: 1 });
+    const videos = await Video.find({ chapterId: chapterId }).sort({
+      order: 1,
+    });
 
     // 4. Sab kuch combine karke response bhejein
     res.status(200).json({
@@ -2582,8 +2705,8 @@ export const getChapterFullDetails = async (req, res, next) => {
           videos: videos, // Saari videos with notesUrl and thumbnailUrl
           totalVideos: videos.length,
           // Agar notes alag model mein hain toh yahan populate kar sakte hain
-        }
-      }
+        },
+      },
     });
   } catch (error) {
     next(error);
