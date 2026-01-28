@@ -34,7 +34,7 @@ import {
   removeBookmark,
   getMyBookmarks,
   toggleBookmark,
-  getBookmarkSummary, getBookmarksList 
+  getBookmarkSummary, getBookmarksList,getUserDashboardStats 
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -428,7 +428,7 @@ userRouter.get('/daily-mcq', getDailyMCQ);
 
 /* ================= MCQ / TEST ================= */
 
-userRouter.get('/get-mcqs', getMcqsByChapter);
+userRouter.get('/get-mcqs', protect,getMcqsByChapter);
 
 /**
  * @swagger
@@ -679,6 +679,7 @@ userRouter.get('/list', getCourseListSimple);
  *       404:
  *         description: User not found
  */
+userRouter.get('/dashboard-stats', protect, getUserDashboardStats);
 
 userRouter.get('/profile/:id', protect, getUserData);
 // userRouter.get('/:id', protect, getUserData);

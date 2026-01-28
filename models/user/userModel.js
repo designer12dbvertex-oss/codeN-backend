@@ -154,7 +154,10 @@ const userSchema = new mongoose.Schema(
       enum: ['free', 'starter', 'professional', 'premium_plus'],
       default: 'free',
     },
+    completedChapters: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' }],
+completedModulesCount: { type: Number, default: 0 }
   },
+
   { timestamps: true }
 );
 

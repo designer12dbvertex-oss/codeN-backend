@@ -26,6 +26,28 @@ import Tag from '../../models/admin/Tags/tag.model.js';
 import TestAttempt from '../../models/user/testAttemptModel.js';
 import Bookmark from '../../models/admin/bookmarkModel.js';
 
+const updateUserChapterProgress = async (userId, chapterId) => {
+  const user = await UserModel.findById(userId);
+  
+  // Agar user nahi milta ya chapter pehle se added hai, toh purana count return karo
+  if (!user || user.completedChapters.includes(chapterId)) {
+    return user ? user.completedModulesCount : 0;
+  }
+
+  // Agar naya chapter hai toh update karo
+  const updatedUser = await UserModel.findByIdAndUpdate(
+    userId,
+    { 
+      $addToSet: { completedChapters: chapterId },
+      $inc: { completedModulesCount: 1 } 
+    },
+    { new: true }
+  );
+
+  return updatedUser.completedModulesCount;
+};
+
+
 export const loginByGoogle = async (req, res, next) => {
   try {
     const { token } = req.body;
@@ -967,7 +989,10 @@ export const getUserData = async (req, res, next) => {
 
     const userData = await UserModel.findById(id).select(
       '-password -otp -otpExpiresAt'
-    );
+    )
+    .populate('collegeId', 'name') // 🔥 College ka naam lene ke liye
+      .populate('stateId', 'name')   // 🔥 State ka naam lene ke liye
+      .populate('cityId', 'name');
 
     if (!userData) {
       return res.status(404).json({
@@ -1791,32 +1816,112 @@ export const getChaptersByTopicForUser = async (req, res) => {
     });
   }
 };
+//working one 
+// export const getMcqsByChapter = async (req, res) => {
+//   try {
+//     const { chapterId } = req.query;
 
+//     if (!chapterId) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'chapterId is required' });
+//     }
+
+//     const mcqs = await MCQ.find({ chapterId, status: 'active' })
+//       .select('-createdBy -updatedBy') // Admin details ki zaroorat nahi hai
+//       .sort({ createdAt: 1 });
+
+//     res.status(200).json({
+//       success: true,
+//       count: mcqs.length,
+//       data: mcqs,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// Ye function aap ek helper file mein ya usi controller mein upar rakh sakte hain
+
+// export const getMcqsByChapter = async (req, res) => {
+//   try {
+//     const { chapterId } = req.query;
+//     const userId = req.user._id;
+
+//     if (!chapterId) {
+//       return res.status(400).json({ success: false, message: 'chapterId is required' });
+//     }
+
+//     // 1. MCQs fetch karein
+//     const mcqs = await MCQ.find({ chapterId, status: 'active' })
+//       .select('-createdBy -updatedBy')
+//       .sort({ createdAt: 1 });
+
+//     // 2. User Progress Update (Single Atomic Operation)
+//     const userBeforeUpdate = await UserModel.findById(userId);
+    
+//     // Check karein ki kya ye chapter pehle se list mein hai?
+//     const isNewChapter = !userBeforeUpdate.completedChapters.includes(chapterId);
+
+//     let currentModulesCount = userBeforeUpdate.completedModulesCount || 0;
+
+//     if (isNewChapter) {
+//       // Agar naya chapter hai, toh array mein add karo aur count badhao
+//       const updatedUser = await UserModel.findByIdAndUpdate(
+//         userId,
+//         { 
+//           $addToSet: { completedChapters: chapterId },
+//           $inc: { completedModulesCount: 1 } 
+//         },
+//         { new: true }
+//       );
+//       currentModulesCount = updatedUser.completedModulesCount;
+//     }
+
+//     // 3. Final Response
+//     res.status(200).json({
+//       success: true,
+//       mcqCount: mcqs.length,
+//       completedModulesCount: currentModulesCount, 
+//       data: mcqs,
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
+// B. Test Submit karke Result Calculate karna
 export const getMcqsByChapter = async (req, res) => {
   try {
     const { chapterId } = req.query;
+    const userId = req.user._id;
 
     if (!chapterId) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'chapterId is required' });
+      return res.status(400).json({ success: false, message: 'chapterId is required' });
     }
 
+    // 1. MCQs fetch karein
     const mcqs = await MCQ.find({ chapterId, status: 'active' })
-      .select('-createdBy -updatedBy') // Admin details ki zaroorat nahi hai
+      .select('-createdBy -updatedBy')
       .sort({ createdAt: 1 });
 
+    // 2. Helper function se progress update karein
+    const currentCount = await updateUserChapterProgress(userId, chapterId);
+
+    // 3. Response
     res.status(200).json({
       success: true,
-      count: mcqs.length,
+      mcqCount: mcqs.length,
+      completedModulesCount: currentCount, 
       data: mcqs,
     });
+
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// B. Test Submit karke Result Calculate karna
 export const submitTest = async (req, res) => {
   try {
     const { chapterId, answers } = req.body;
@@ -2481,6 +2586,14 @@ export const updateVideoProgress = async (req, res) => {
       },
       { upsert: true, new: true } // Agar record nahi hai toh naya bana dega
     );
+    
+    // 🔥 Helper Call: Jab video complete ho tabhi update karein
+    if (status === 'completed') {
+      const videoData = await Video.findById(videoId).select('chapterId');
+      if (videoData?.chapterId) {
+        await updateUserChapterProgress(userId, videoData.chapterId);
+      }
+    }
 
     res.status(200).json({ success: true, data: progress });
   } catch (error) {
@@ -3011,6 +3124,38 @@ export const toggleBookmark = async (req, res) => {
         .status(201)
         .json({ success: true, message: `Added to ${category}` });
     }
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+
+
+
+
+export const getUserDashboardStats = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // User model se tracking fields nikaalein
+    const user = await UserModel.findById(userId).select('completedModulesCount completedChapters');
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        // Ye wahi count hai jo MCQ aur Video dono se update ho raha hai
+        totalCompletedModules: user.completedModulesCount || 0,
+        
+        // Agar aapko list bhi chahiye ki kaunse chapters complete hue
+        completedChapterIds: user.completedChapters,
+        
+        // Aap yahan aur bhi stats add kar sakte hain (jaise certificates, marks etc.)
+      }
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
