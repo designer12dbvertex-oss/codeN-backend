@@ -5,6 +5,7 @@ import fs from 'fs';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
+import admin from 'firebase-admin'
 
 // Config and DB
 import connectDB from './config/db.js';
@@ -35,6 +36,23 @@ import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 
 // Load Env
 dotenv.config();
+
+// Firebase Admin Setup
+const serviceAccount = JSON.parse(
+  fs.readFileSync(new URL('./config/firebase-service-account.json', import.meta.url))
+);
+const formattedPrivateKey = serviceAccount.private_key.replace(/\\n/g, '\n');
+
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      ...serviceAccount,
+      private_key: formattedPrivateKey, // Yahan formatted wali key use karni hai
+    }),
+    projectId: serviceAccount.project_id
+  });
+}
+console.log('✅ Firebase Admin SDK Initialized');
 
 // Initialize App
 const app = express();

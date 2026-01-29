@@ -25,6 +25,7 @@ import VideoProgress from '../../models/admin/Video/videoprogess.js';
 import Tag from '../../models/admin/Tags/tag.model.js';
 import TestAttempt from '../../models/user/testAttemptModel.js';
 import Bookmark from '../../models/admin/bookmarkModel.js';
+import admin from "firebase-admin"
 
 const updateUserChapterProgress = async (userId, chapterId) => {
   const user = await UserModel.findById(userId);
@@ -47,42 +48,143 @@ const updateUserChapterProgress = async (userId, chapterId) => {
   return updatedUser.completedModulesCount;
 };
 
+//working krishna
+// export const loginByGoogle = async (req, res, next) => {
+//   try {
+//     const { token } = req.body;
+
+//     if (!token) {
+//       return res.status(400).json({ message: 'Google ID token is required' });
+//     }
+
+//     // ✅ REAL TOKEN VERIFY
+//     // ✅ SECURE TOKEN VERIFY (NO GOOGLE HTTP CALL)
+//     let payload;
+
+//     try {
+//       const ticket = await client.verifyIdToken({
+//         idToken: token,
+//         audience: process.env.GOOGLE_CLIENT_ID,
+//       });
+
+//       payload = ticket.getPayload();
+//     } catch (err) {
+//       return res.status(401).json({ message: 'Invalid Google token' });
+//     }
+
+//     if (!payload?.email || !payload?.sub) {
+//       return res.status(400).json({ message: 'Invalid Google token payload' });
+//     }
+
+//     const email = payload.email.toLowerCase().trim();
+//     const googleId = payload.sub;
+//     const name = payload.name || 'Google User';
+//     const picture = payload.picture || null; // 👈 GOOGLE PROFILE IMAGE
+
+//     let user = await UserModel.findOne({ email });
+
+//     if (!user) {
+//       user = await UserModel.create({
+//         name,
+//         email,
+//         googleId,
+//         profileImage: picture,
+//         signUpBy: 'google',
+//         isEmailVerified: true,
+//         isMobileVerified: false,
+//         role: 'user',
+//       });
+//     } else {
+//       if (!user.googleId) user.googleId = googleId;
+
+//       if (!user.profileImage && picture) {
+//         user.profileImage = picture; // 👈 ADD THIS
+//       }
+//       if (user.signUpBy === 'email' && !user.isEmailVerified) {
+//         user.isEmailVerified = true;
+//         user.signUpBy = 'google';
+//       }
+//       await user.save();
+//     }
+
+//     if (user.status !== 'active') {
+//       return res
+//         .status(403)
+//         .json({ message: 'Account is blocked or inactive' });
+//     }
+
+//     const { accessToken, refreshToken } = generateToken(user._id); // updated below
+//     // 🔽 ADD THIS
+//     user.refreshToken = refreshToken;
+//     await user.save();
+//     const safeUser = user.toObject();
+//     delete safeUser.password;
+//     delete safeUser.otp;
+//     delete safeUser.otpExpiresAt;
+//     delete safeUser.refreshToken;
+
+//     return res.status(200).json({
+//       accessToken,
+//       refreshToken,
+//       user: safeUser,
+//     });
+//   } catch (error) {
+//     next(error);
+//   }
+// };
+
+
 
 export const loginByGoogle = async (req, res, next) => {
   try {
     const { token } = req.body;
+    console.log('Incoming Token:', token ? "Token Received" : "No Token");
 
     if (!token) {
       return res.status(400).json({ message: 'Google ID token is required' });
     }
-
-    // ✅ REAL TOKEN VERIFY
-    // ✅ SECURE TOKEN VERIFY (NO GOOGLE HTTP CALL)
-    let payload;
-
+console.log("Token Length:", token.length); 
+console.log("Token Starts With:", token.substring(0, 10));
+    let decodedToken;
     try {
-      const ticket = await client.verifyIdToken({
-        idToken: token,
-        audience: process.env.GOOGLE_CLIENT_ID,
-      });
+      // Backend project ID log kar rahe hain verify karne ke liye
+      const currentProjectId = admin.app().options.projectId;
+      console.log("🔍 Verifying token for project:", currentProjectId);
+console.log("Token Length:", token.length); 
+console.log("Token Starts With:", token.substring(0, 10));
+      // Firebase Token Verify karna
+      decodedToken = await admin.auth().verifyIdToken(token);
+    console.log("✅ Token VERIFIED successfully!");
+  console.log("Decoded UID:", decodedToken.uid);
+  console.log("Decoded email:", decodedToken.email);
+  console.log("Full payload:", JSON.stringify(decodedToken, null, 2));
 
-      payload = ticket.getPayload();
     } catch (err) {
-      return res.status(401).json({ message: 'Invalid Google token' });
+      console.error("❌ VERIFY ERROR DETAILS:");
+  console.error("Error code:", err.code);
+  console.error("Error message:", err.message);
+  console.error("Full error object:", err);
+      return res.status(401).json({ 
+        message: 'Invalid or Expired Firebase Token',
+        error_detail: err.message 
+      });
     }
 
-    if (!payload?.email || !payload?.sub) {
-      return res.status(400).json({ message: 'Invalid Google token payload' });
+    // Yahan tak tabhi pahunchega jab token SUCCESSFUL verify ho chuka ho
+    const email = decodedToken.email?.toLowerCase().trim();
+    const googleId = decodedToken.uid; 
+    const name = decodedToken.name || 'Google User';
+    const picture = decodedToken.picture || null;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Invalid Google token payload: Email missing' });
     }
 
-    const email = payload.email.toLowerCase().trim();
-    const googleId = payload.sub;
-    const name = payload.name || 'Google User';
-    const picture = payload.picture || null; // 👈 GOOGLE PROFILE IMAGE
-
+    // --- Database Logic ---
     let user = await UserModel.findOne({ email });
 
     if (!user) {
+      // Naya User Banana
       user = await UserModel.create({
         name,
         email,
@@ -90,147 +192,46 @@ export const loginByGoogle = async (req, res, next) => {
         profileImage: picture,
         signUpBy: 'google',
         isEmailVerified: true,
-        isMobileVerified: false,
         role: 'user',
       });
+      console.log("🆕 New User Created via Google Sign-In");
     } else {
-      if (!user.googleId) user.googleId = googleId;
-
-      if (!user.profileImage && picture) {
-        user.profileImage = picture; // 👈 ADD THIS
-      }
-      if (user.signUpBy === 'email' && !user.isEmailVerified) {
-        user.isEmailVerified = true;
-        user.signUpBy = 'google';
-      }
-      await user.save();
+      // Existing User Update karna
+      let isUpdated = false;
+      if (!user.googleId) { user.googleId = googleId; isUpdated = true; }
+      if (!user.profileImage && picture) { user.profileImage = picture; isUpdated = true; }
+      
+      if (isUpdated) await user.save();
+      console.log("🏠 Existing User Logged In");
     }
 
-    if (user.status !== 'active') {
-      return res
-        .status(403)
-        .json({ message: 'Account is blocked or inactive' });
-    }
-
-    const { accessToken, refreshToken } = generateToken(user._id); // updated below
-    // 🔽 ADD THIS
+    // JWT Token generation (Backend specific)
+    const { accessToken, refreshToken } = generateToken(user._id);
     user.refreshToken = refreshToken;
     await user.save();
+
     const safeUser = user.toObject();
-    delete safeUser.password;
-    delete safeUser.otp;
-    delete safeUser.otpExpiresAt;
+    delete safeUser.password; // Password agar ho toh security ke liye delete karein
     delete safeUser.refreshToken;
 
     return res.status(200).json({
+      success: true,
       accessToken,
       refreshToken,
       user: safeUser,
     });
-  } catch (error) {
-    next(error);
+
+  } catch (err) {
+    console.error("🔥 Global Google Login Error:", err); 
+    return res.status(500).json({ 
+      message: 'Internal Server Error during Google Login',
+      error_detail: err.message 
+    });
   }
 };
-
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
-
-// export const register = async (req, res, next) => {
-//   const session = await mongoose.startSession();
-//   session.startTransaction();
-
-//   try {
-//     const {
-//       name,
-//       email,
-//       mobile,
-//       address,
-//       countryId,
-//       stateId,
-//       cityId,
-//       collegeId,
-//       classId,
-//       admissionYear,
-//       password,
-//     } = req.body;
-
-//     if (!name || !email || !password) {
-//       return res
-//         .status(400)
-//         .json({ message: 'Name, email and password are required' });
-//     }
-//     const activeState = await State.findOne({ _id: stateId, countryId, active: true });
-//     if (!activeState) {
-//       return res.status(400).json({ message: 'This state is currently not active for registration' });
-//     }
-
-//     if (!(await Country.findById(countryId)))
-//       throw new Error('Invalid country');
-//     if (!(await State.findOne({ _id: stateId, countryId })))
-//       throw new Error('Invalid state');
-//     if (!(await City.findOne({ _id: cityId, stateId, countryId })))
-//       throw new Error('Invalid city');
-
-//     if (
-//       !(await College.findOne({ _id: collegeId, cityId, stateId, countryId }))
-//     )
-//       throw new Error('Invalid college');
-
-//     if (!(await ClassModel.findById(classId))) throw new Error('Invalid class');
-
-//     if (password.length < 6) {
-//       return res
-//         .status(400)
-//         .json({ message: 'Password must be at least 6 characters' });
-//     }
-
-//     const normalizedEmail = email.toLowerCase().trim();
-
-//     if (await UserModel.findOne({ email: normalizedEmail })) {
-//       return res.status(400).json({ message: 'User already exists' });
-//     }
-
-//     const hashedPassword = await bcrypt.hash(password, 10);
-//     const otp = generateOtp();
-
-//     const [user] = await UserModel.create(
-//       [
-//         {
-//           name,
-//           email: normalizedEmail,
-//           password: hashedPassword,
-//           otp,
-//           otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-//           mobile,
-//           address,
-//           countryId,
-//           stateId,
-//           cityId,
-//           collegeId,
-//           classId,
-//           admissionYear,
-//           signUpBy: 'email',
-//           role: 'user',
-//         },
-//       ],
-//       { session }
-//     );
-
-//     await sendFormEmail(normalizedEmail, otp);
-
-//     await session.commitTransaction();
-//     session.endSession();
-
-//     return res.status(201).json({
-//       message: 'User registered successfully. Please verify your email.',
-//     });
-//   } catch (error) {
-//     await session.abortTransaction();
-//     session.endSession();
-//     next(error);
-//   }
-// };
 
 export const register = async (req, res, next) => {
   const session = await mongoose.startSession();
