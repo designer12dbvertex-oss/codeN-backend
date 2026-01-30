@@ -120,7 +120,7 @@ const userRouter = express.Router();
  *         description: Google login successful
  */
 
-userRouter.post('/google', loginByGoogle);
+  userRouter.post('/google', loginByGoogle);
 
 // Email registration flow
 /**
