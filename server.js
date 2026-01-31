@@ -39,7 +39,7 @@
 
   // Firebase Admin Setup
   const serviceAccount = JSON.parse(
-    fs.readFileSync(new URL('./config/firebase-service-account.json', import.meta.url))
+    fs.readFileSync(new URL('./config/firebase-service-account.json', import.meta.url), 'utf8')
   );
   const formattedPrivateKey = serviceAccount.private_key.replace(/\\n/g, '\n');
 
