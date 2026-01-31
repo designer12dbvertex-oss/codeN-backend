@@ -1351,14 +1351,14 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
           return {
             ...ch,
             isBookmarked: !!bookmarkMap[chIdStr],
-            bookMarkedCatecory  : bookmarkMap[chIdStr] || null // Agar bookmarked hai to category dikhayega
+            bookMarkedCategory  : bookmarkMap[chIdStr] || null // Agar bookmarked hai to category dikhayega
           };
         });
 
       return {
         ...topic,
         isBookmarked: !!bookmarkMap[topicIdStr],
-        bookMarkedCatecory  : bookmarkMap[topicIdStr] || null, // Topic ki category
+        bookMarkedCategory  : bookmarkMap[topicIdStr] || null, // Topic ki category
         chapters: topicChapters
       };
     });
