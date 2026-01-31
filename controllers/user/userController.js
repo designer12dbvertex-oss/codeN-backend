@@ -1331,29 +1331,34 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
     // 3. User ke saare Bookmarks fetch karein
     const userBookmarks = await Bookmark.find({ userId }).lean();
 
-    // Ek Set banayein jisme saari bookmarked IDs (Topic, Chapter, MCQ etc.) mix hon
-    // Humne toggle mein chapterId, topicId use kiya hai, isliye hum unhe nikaalte hain
-    const bookmarkedIds = new Set();
+    // Ek Map banayein taaki ID se category turant mil jaye
+    const bookmarkMap = {};
     userBookmarks.forEach(b => {
-      if (b.chapterId) bookmarkedIds.add(b.chapterId.toString());
-      if (b.topicId) bookmarkedIds.add(b.topicId.toString());
-      if (b.mcqId) bookmarkedIds.add(b.mcqId.toString());
-      if (b.itemId) bookmarkedIds.add(b.itemId.toString()); // Generic safety ke liye
+      const id = b.chapterId || b.topicId || b.mcqId || b.itemId;
+      if (id) {
+        bookmarkMap[id.toString()] = b.category || 'general';
+      }
     });
 
-    // 4. Data Map karein aur isBookmarked check karein
+    // 4. Data Map karein aur isBookmarked + category add karein
     const result = topics.map(topic => {
-      // Is topic ke chapters filter karein
+      const topicIdStr = topic._id.toString();
+      
       const topicChapters = chapters
-        .filter(ch => ch.topicId.toString() === topic._id.toString())
-        .map(ch => ({
-          ...ch,
-          isBookmarked: bookmarkedIds.has(ch._id.toString()) // Chapter check
-        }));
+        .filter(ch => ch.topicId.toString() === topicIdStr)
+        .map(ch => {
+          const chIdStr = ch._id.toString();
+          return {
+            ...ch,
+            isBookmarked: !!bookmarkMap[chIdStr],
+            bookMarkedCatecory  : bookmarkMap[chIdStr] || null // Agar bookmarked hai to category dikhayega
+          };
+        });
 
       return {
         ...topic,
-        isBookmarked: bookmarkedIds.has(topic._id.toString()), // Topic check
+        isBookmarked: !!bookmarkMap[topicIdStr],
+        bookMarkedCatecory  : bookmarkMap[topicIdStr] || null, // Topic ki category
         chapters: topicChapters
       };
     });
