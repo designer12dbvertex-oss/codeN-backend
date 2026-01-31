@@ -1304,183 +1304,57 @@ export const getSubSubjectsBySubject = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-// export const getTopicsWithChaptersForUser = async (req, res) => {
-//   try {
-//     const { subSubjectId } = req.params;
-
-//     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Invalid subSubjectId',
-//       });
-//     }
-
-//     // 1) Is sub-subject ke ACTIVE chapters
-//     const chapters = await Chapter.find({
-//       subSubjectId,
-//       status: 'active',
-//     })
-//       .select('name topicId order')
-//       .sort({ order: 1 })
-//       .lean();
-
-//     // 2) Topic IDs nikaalo (duplicate remove)
-//     const topicIds = [
-//       ...new Set(
-//         chapters.filter((c) => c.topicId).map((c) => c.topicId.toString())
-//       ),
-//     ];
-
-//     // 3) Un topicIds ke ACTIVE topics
-//     const topics = await Topic.find({
-//       _id: { $in: topicIds },
-//       status: 'active',
-//     })
-//       .select('name description order')
-//       .sort({ order: 1 })
-//       .lean();
-
-//     // 4) Topic-wise chapters group karo
-//     const topicMap = {};
-//     topics.forEach((t) => {
-//       topicMap[t._id.toString()] = {
-//         _id: t._id,
-//         name: t.name,
-//         description: t.description,
-//         order: t.order,
-//         chapters: [],
-//       };
-//     });
-
-//     chapters.forEach((ch) => {
-//       const key = ch.topicId?.toString();
-//       if (topicMap[key]) {
-//         topicMap[key].chapters.push({
-//           _id: ch._id,
-//           name: ch.name,
-//           order: ch.order,
-//         });
-//       }
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       count: Object.values(topicMap).length,
-//       data: Object.values(topicMap),
-//     });
-//   } catch (error) {
-//     res.status(500).json({
-//       success: false,
-//       message: error.message,
-//     });
-//   }
-// };
-
-// export const getTopicsWithChaptersForUser = async (req, res) => {
-//   console.log("Received ID:", req.params.subSubjectId);
-//   try {
-//     const { subSubjectId} = req.params;
-
-//     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-//       return res.status(400).json({ success: false, message: 'Invalid subSubjectId' });
-//     }
-
-//     // 1) Pehle us Sub-Subject ke saare ACTIVE Topics nikaalo
-//     const topics = await Topic.find({
-//       subSubjectId,
-//       status: 'active',
-//     })
-//     .select('name description order')
-//     .sort({ order: 1 })
-//     .lean();
-
-//     // 2) Ab un saare Topics ke andar ke ACTIVE Chapters nikaalo
-//     const topicIds = topics.map(t => t._id);
-//     const chapters = await Chapter.find({
-//       topicId: { $in: topicIds },
-//       status: 'active',
-//     })
-//     .select('name topicId order')
-//     .sort({ order: 1 })
-//     .lean();
-
-//     // 3) Grouping Logic: Topics ke andar unke Chapters daalna
-//     const result = topics.map(topic => {
-//       return {
-//         ...topic,
-//         chapters: chapters.filter(ch => ch.topicId.toString() === topic._id.toString())
-//       };
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       count: result.length,
-//       data: result,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
 
 export const getTopicsWithChaptersForUser = async (req, res) => {
   try {
     const { subSubjectId } = req.params;
+    const userId = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Invalid subSubjectId' });
+      return res.status(400).json({ success: false, message: 'Invalid subSubjectId' });
     }
 
-    // 1) Pehle us Sub-Subject ke saare ACTIVE Topics nikaalo
-    const topics = await Topic.find({
-      subSubjectId,
-      status: 'active',
-    })
+    // 1. Topics fetch karein
+    const topics = await Topic.find({ subSubjectId, status: 'active' })
       .select('name description order')
       .sort({ order: 1 })
       .lean();
 
-    const topicIds = topics.map((t) => t._id);
+    const topicIds = topics.map(t => t._id);
 
-    // 2) Un Topics ke andar ke ACTIVE Chapters nikaalo
-    const chapters = await Chapter.find({
-      topicId: { $in: topicIds },
-      status: 'active',
-    })
+    // 2. Chapters fetch karein
+    const chapters = await Chapter.find({ topicId: { $in: topicIds }, status: 'active' })
       .select('name topicId order')
       .sort({ order: 1 })
       .lean();
 
-    // 3) Aggregation se har Topic ke Videos ka COUNT nikaalo (Efficiency ke liye)
-    const videoCounts = await Video.aggregate([
-      {
-        $match: {
-          topicId: { $in: topicIds },
-          status: 'active',
-        },
-      },
-      {
-        $group: {
-          _id: '$topicId',
-          totalVideos: { $sum: 1 },
-        },
-      },
-    ]);
+    // 3. User ke saare Bookmarks fetch karein
+    const userBookmarks = await Bookmark.find({ userId }).lean();
 
-    // 4) Grouping Logic: Topics + Chapters + Video Count ko merge karna
-    const result = topics.map((topic) => {
-      // Is topic ke liye count dhoondo
-      const countData = videoCounts.find(
-        (v) => v._id.toString() === topic._id.toString()
-      );
+    // Ek Set banayein jisme saari bookmarked IDs (Topic, Chapter, MCQ etc.) mix hon
+    // Humne toggle mein chapterId, topicId use kiya hai, isliye hum unhe nikaalte hain
+    const bookmarkedIds = new Set();
+    userBookmarks.forEach(b => {
+      if (b.chapterId) bookmarkedIds.add(b.chapterId.toString());
+      if (b.topicId) bookmarkedIds.add(b.topicId.toString());
+      if (b.mcqId) bookmarkedIds.add(b.mcqId.toString());
+      if (b.itemId) bookmarkedIds.add(b.itemId.toString()); // Generic safety ke liye
+    });
+
+    // 4. Data Map karein aur isBookmarked check karein
+    const result = topics.map(topic => {
+      // Is topic ke chapters filter karein
+      const topicChapters = chapters
+        .filter(ch => ch.topicId.toString() === topic._id.toString())
+        .map(ch => ({
+          ...ch,
+          isBookmarked: bookmarkedIds.has(ch._id.toString()) // Chapter check
+        }));
 
       return {
         ...topic,
-        videoCount: countData ? countData.totalVideos : 0, // Agar video nahi hai toh 0 dikhega
-        chapters: chapters.filter(
-          (ch) => ch.topicId.toString() === topic._id.toString()
-        ),
+        isBookmarked: bookmarkedIds.has(topic._id.toString()), // Topic check
+        chapters: topicChapters
       };
     });
 
@@ -1493,6 +1367,78 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
+// export const getTopicsWithChaptersForUser = async (req, res) => {
+//   try {
+//     const { subSubjectId } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
+//       return res
+//         .status(400)
+//         .json({ success: false, message: 'Invalid subSubjectId' });
+//     }
+
+//     // 1) Pehle us Sub-Subject ke saare ACTIVE Topics nikaalo
+//     const topics = await Topic.find({
+//       subSubjectId,
+//       status: 'active',
+//     })
+//       .select('name description order')
+//       .sort({ order: 1 })
+//       .lean();
+
+//     const topicIds = topics.map((t) => t._id);
+
+//     // 2) Un Topics ke andar ke ACTIVE Chapters nikaalo
+//     const chapters = await Chapter.find({
+//       topicId: { $in: topicIds },
+//       status: 'active',
+//     })
+//       .select('name topicId order')
+//       .sort({ order: 1 })
+//       .lean();
+
+//     // 3) Aggregation se har Topic ke Videos ka COUNT nikaalo (Efficiency ke liye)
+//     const videoCounts = await Video.aggregate([
+//       {
+//         $match: {
+//           topicId: { $in: topicIds },
+//           status: 'active',
+//         },
+//       },
+//       {
+//         $group: {
+//           _id: '$topicId',
+//           totalVideos: { $sum: 1 },
+//         },
+//       },
+//     ]);
+
+//     // 4) Grouping Logic: Topics + Chapters + Video Count ko merge karna
+//     const result = topics.map((topic) => {
+//       // Is topic ke liye count dhoondo
+//       const countData = videoCounts.find(
+//         (v) => v._id.toString() === topic._id.toString()
+//       );
+
+//       return {
+//         ...topic,
+//         videoCount: countData ? countData.totalVideos : 0, // Agar video nahi hai toh 0 dikhega
+//         chapters: chapters.filter(
+//           (ch) => ch.topicId.toString() === topic._id.toString()
+//         ),
+//       };
+//     });
+
+//     res.status(200).json({
+//       success: true,
+//       count: result.length,
+//       data: result,
+//     });
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
 export const getAllTopicsForUser = async (req, res) => {
   try {
     const topics = await Topic.find({ status: 'active' })
@@ -2746,6 +2692,9 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
     next(error);
   }
 };
+
+
+
 export const getDailyMCQ = async (req, res, next) => {
   try {
     const today = new Date();
@@ -3094,43 +3043,89 @@ export const getBookmarksList = async (req, res) => {
 };
 
 // ✅ 3. Toggle Bookmark (Add/Remove Logic)
+// export const toggleBookmark = async (req, res) => {
+//   try {
+//     const { userId, type, itemId, category } = req.body;
+
+//     if (!userId || !type || !category) {
+//       return res
+//         .status(400)
+//         .json({
+//           success: false,
+//           message: 'userId, type and category are required',
+//         });
+//     }
+
+//     let query = { userId, type, category };
+//     if (type === 'mcq') query.mcqId = itemId;
+//     else if (type === 'topic') query.topicId = itemId;
+//     else if (type === 'chapter') query.chapterId = itemId;
+//     else if (type === 'sub-subject') query.subSubjectId = itemId;
+
+//     const existing = await Bookmark.findOne(query);
+
+//     if (existing) {
+//       await Bookmark.findByIdAndDelete(existing._id);
+//       return res
+//         .status(200)
+//         .json({ success: true, message: `Removed from ${category}` });
+//     } else {
+//       await Bookmark.create(query);
+//       return res
+//         .status(201)
+//         .json({ success: true, message: `Added to ${category}` });
+//     }
+//   } catch (error) {
+//     res.status(500).json({ success: false, message: error.message });
+//   }
+// };
+
 export const toggleBookmark = async (req, res) => {
   try {
-    const { userId, type, itemId, category } = req.body;
+    const { type, itemId, category } = req.body;
+    const userId = req.user._id; // Auth middleware se milega
 
-    if (!userId || !type || !category) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: 'userId, type and category are required',
-        });
+    if (!itemId || !type) {
+      return res.status(400).json({ success: false, message: "itemId and type are required" });
     }
 
-    let query = { userId, type, category };
+    // Query object taiyaar karein
+    let query = { userId, type };
+
+    // Item type ke basis par query set karein
     if (type === 'mcq') query.mcqId = itemId;
-    else if (type === 'topic') query.topicId = itemId;
+    else if (type === 'pearl') query.pearlId = itemId;
     else if (type === 'chapter') query.chapterId = itemId;
     else if (type === 'sub-subject') query.subSubjectId = itemId;
 
-    const existing = await Bookmark.findOne(query);
+    // Check karein ki kya pehle se bookmark maujood hai
+    const existingBookmark = await Bookmark.findOne(query);
 
-    if (existing) {
-      await Bookmark.findByIdAndDelete(existing._id);
-      return res
-        .status(200)
-        .json({ success: true, message: `Removed from ${category}` });
+    if (existingBookmark) {
+      // AGAR HAI TO REMOVE KARO (Toggle OFF)
+      await Bookmark.findByIdAndDelete(existingBookmark._id);
+      return res.status(200).json({ 
+        success: true, 
+        isBookmarked: false, 
+        message: "Removed from bookmarks" 
+      });
     } else {
-      await Bookmark.create(query);
-      return res
-        .status(201)
-        .json({ success: true, message: `Added to ${category}` });
+      // AGAR NAHI HAI TO ADD KARO (Toggle ON)
+      // Naya data object banayein aur category add karein
+      const newBookmarkData = { ...query, category: category || 'general' };
+      await Bookmark.create(newBookmarkData);
+      
+      return res.status(201).json({ 
+        success: true, 
+        isBookmarked: true, 
+        message: "Added to bookmarks" 
+      });
     }
   } catch (error) {
+    console.error("Toggle Bookmark Error:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 
 
