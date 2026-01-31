@@ -1350,14 +1350,14 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
           const chIdStr = ch._id.toString();
           return {
             ...ch,
-            isBookmarked: !!bookmarkMap[chIdStr],
+            isBookMarked: !!bookmarkMap[chIdStr],
             bookMarkedCategory  : bookmarkMap[chIdStr] || null // Agar bookmarked hai to category dikhayega
           };
         });
 
       return {
         ...topic,
-        isBookmarked: !!bookmarkMap[topicIdStr],
+        isBookMarked: !!bookmarkMap[topicIdStr],
         bookMarkedCategory  : bookmarkMap[topicIdStr] || null, // Topic ki category
         chapters: topicChapters
       };
