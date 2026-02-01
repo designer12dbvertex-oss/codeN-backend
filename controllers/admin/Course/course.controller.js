@@ -7,6 +7,16 @@ import Course from '../../../models/admin/Course/course.model.js';
  */
 export const createCourse = async (req, res, next) => {
   try {
+    // 🔒 CHECK: Only one course allowed
+    const existingCourse = await Course.findOne();
+
+    if (existingCourse) {
+      return res.status(400).json({
+        success: false,
+        message: 'Only one course is allowed. You cannot create more.',
+      });
+    }
+
     const {
       name,
       description,
