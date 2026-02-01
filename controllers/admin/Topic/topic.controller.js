@@ -1,47 +1,47 @@
 import mongoose from 'mongoose';
 import Topic from '../../../models/admin/Topic/topic.model.js';
-import SubSubject from '../../../models/admin/Sub-subject/subSubject.model.js';
+import Chapter from '../../../models/admin/Chapter/chapter.model.js';
 
 // ==========================
 // CREATE TOPIC
 // ==========================
 export const createTopic = async (req, res) => {
   try {
-    const { name, description, order, subSubjectId, status } = req.body;
+    const { name, description, order, chapterId, status } = req.body;
 
-    if (!name || !subSubjectId) {
+    if (!name || !chapterId) {
       return res.status(400).json({
         success: false,
-        message: 'Topic name and subSubjectId are required',
+        message: 'Topic name and chapterId are required',
       });
     }
 
-    // ✅ Validate subSubjectId
-    if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
+    // ✅ Validate chapterId
+    if (!mongoose.Types.ObjectId.isValid(chapterId)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid subSubjectId',
+        message: 'Invalid chapterId',
       });
     }
 
-    const subSubjectExists = await SubSubject.exists({ _id: subSubjectId });
-    if (!subSubjectExists) {
+    const chapterExists = await Chapter.exists({ _id: chapterId });
+    if (!chapterExists) {
       return res.status(404).json({
         success: false,
-        message: 'Sub-subject not found',
+        message: 'Chapter not found',
       });
     }
 
-    // ✅ Duplicate check (same sub-subject + same name)
+    // ✅ Duplicate check (same chapter + same name)
     const exists = await Topic.findOne({
       name: name.trim(),
-      subSubjectId,
+      chapterId,
     });
 
     if (exists) {
       return res.status(400).json({
         success: false,
-        message: 'Topic already exists in this sub-subject',
+        message: 'Topic already exists in this chapter',
       });
     }
 
@@ -49,7 +49,7 @@ export const createTopic = async (req, res) => {
       name: name.trim(),
       description,
       order: order || 0,
-      subSubjectId,
+      chapterId,
       status: status || 'active',
       createdBy: req.admin._id,
     });
@@ -67,24 +67,24 @@ export const createTopic = async (req, res) => {
 };
 
 // ==========================
-// GET TOPICS BY SUB-SUBJECT
+// GET TOPICS BY CHAPTER
 // ==========================
-export const getTopicsBySubSubject = async (req, res) => {
+export const getTopicsByChapter = async (req, res) => {
   try {
-    const { subSubjectId } = req.params;
+    const { chapterId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
+    if (!mongoose.Types.ObjectId.isValid(chapterId)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid subSubjectId',
+        message: 'Invalid chapterId',
       });
     }
 
     const topics = await Topic.find({
-      subSubjectId,
+      chapterId,
       status: 'active',
     })
-      .select('name description order subSubjectId status')
+      .select('name description order chapterId status')
       .sort({ order: 1 });
 
     res.status(200).json({
@@ -105,20 +105,24 @@ export const getTopicsBySubSubject = async (req, res) => {
 // ==========================
 export const getAllTopics = async (req, res) => {
   try {
-    const { subSubjectId } = req.query;
+    const { chapterId } = req.query;
 
     const filter = {};
-    if (subSubjectId) {
-      filter.subSubjectId = subSubjectId; 
+    if (chapterId) {
+      filter.chapterId = chapterId;
     }
 
     const topics = await Topic.find(filter)
       .populate({
-        path: 'subSubjectId',
-        select: 'name subjectId',
+        path: 'chapterId',
+        select: 'name subSubjectId',
         populate: {
-          path: 'subjectId',
-          select: 'name',
+          path: 'subSubjectId',
+          select: 'name subjectId',
+          populate: {
+            path: 'subjectId',
+            select: 'name',
+          },
         },
       })
       .populate('createdBy', 'name email')
@@ -128,7 +132,7 @@ export const getAllTopics = async (req, res) => {
     // 🔁 Force consistency
     const safeTopics = topics.map((t) => ({
       ...t,
-      subSubjectId: typeof t.subSubjectId === 'string' ? null : t.subSubjectId,
+      chapterId: typeof t.chapterId === 'string' ? null : t.chapterId,
     }));
 
     res.status(200).json({
@@ -160,11 +164,15 @@ export const getTopicById = async (req, res) => {
 
     const topic = await Topic.findById(id)
       .populate({
-        path: 'subSubjectId',
-        select: 'name subjectId',
+        path: 'chapterId',
+        select: 'name subSubjectId',
         populate: {
-          path: 'subjectId',
-          select: 'name',
+          path: 'subSubjectId',
+          select: 'name subjectId',
+          populate: {
+            path: 'subjectId',
+            select: 'name',
+          },
         },
       })
       .populate('createdBy', 'name email');
@@ -191,12 +199,9 @@ export const getTopicById = async (req, res) => {
 // ==========================
 // UPDATE TOPIC
 // ==========================
-// ==========================
-// UPDATE TOPIC
-// ==========================
 export const updateTopic = async (req, res, next) => {
   try {
-    const { name, description, order, subSubjectId } = req.body;
+    const { name, description, order, chapterId } = req.body;
 
     const topic = await Topic.findById(req.params.id);
     if (!topic) {
@@ -206,7 +211,26 @@ export const updateTopic = async (req, res, next) => {
       });
     }
 
-    if (subSubjectId) topic.subSubjectId = subSubjectId;
+    // ✅ Validate chapterId if being updated
+    if (chapterId) {
+      if (!mongoose.Types.ObjectId.isValid(chapterId)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid chapterId',
+        });
+      }
+
+      const chapterExists = await Chapter.exists({ _id: chapterId });
+      if (!chapterExists) {
+        return res.status(404).json({
+          success: false,
+          message: 'Chapter not found',
+        });
+      }
+
+      topic.chapterId = chapterId;
+    }
+
     if (name !== undefined) topic.name = name.trim();
     if (description !== undefined) topic.description = description;
     if (order !== undefined) topic.order = order;

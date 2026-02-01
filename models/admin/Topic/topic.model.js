@@ -2,8 +2,12 @@ import mongoose from 'mongoose';
 
 const topicSchema = new mongoose.Schema(
   {
-    // ❌ Removed chapterId (topic → chapter one-to-many hona chahiye)
-    // chapterId: { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter', required: true },
+    // ✅ Topic kis Chapter ka hai (Subject → SubSubject → Chapter → Topic)
+    chapterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Chapter',
+      required: true,
+    },
 
     name: {
       type: String,
@@ -21,13 +25,6 @@ const topicSchema = new mongoose.Schema(
       default: 0,
     },
 
-    // ✅ Topic kis Sub-Subject ka hai
-    subSubjectId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'SubSubject',
-      required: true,
-    },
-
     status: {
       type: String,
       enum: ['active', 'inactive'],
@@ -39,11 +36,16 @@ const topicSchema = new mongoose.Schema(
       ref: 'Admin',
       required: true,
     },
+
+    updatedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Admin',
+    },
   },
   { timestamps: true }
 );
 
-// 🔁 Unique: same sub-subject me same topic name duplicate na ho
-topicSchema.index({ subSubjectId: 1, name: 1 }, { unique: true });
+// 🔁 Unique: same chapter me same topic name duplicate na ho
+topicSchema.index({ chapterId: 1, name: 1 }, { unique: true });
 
 export default mongoose.model('Topic', topicSchema);

@@ -6,7 +6,7 @@ import {
   updateTopic,
   toggleTopicStatus,
   deleteTopicPermanently,
-  getTopicsBySubSubject,
+  getTopicsByChapter,
 } from '../../../controllers/admin/Topic/topic.controller.js';
 
 import { protect } from '../../../middleware/authMiddleware.js';
@@ -24,8 +24,8 @@ router.post('/', createTopic);
 // LIST ALL TOPICS
 router.get('/', getAllTopics);
 
-// LIST TOPICS BY SUB-SUBJECT (Marrow Flow)
-router.get('/sub-subject/:subSubjectId', getTopicsBySubSubject);
+// LIST TOPICS BY CHAPTER (Hierarchy: Chapter → Topic)
+router.get('/chapter/:chapterId', getTopicsByChapter);
 
 // GET SINGLE TOPIC
 router.get('/:id', getTopicById);

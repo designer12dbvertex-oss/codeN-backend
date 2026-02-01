@@ -693,38 +693,38 @@ export const login = async (req, res, next) => {
 
 export const resendOtp = async (req, res, next) => {
   try {
-    const { email, mobile } = req.body;
+    let { email, mobile } = req.body;
 
-    // 1️⃣ Input validation
-    if (!email && !mobile) {
+    email = email?.toLowerCase().trim();
+    mobile = mobile?.trim();
+
+    if ((!email && !mobile) || (email && mobile)) {
       return res.status(400).json({
-        message: 'Email or mobile is required',
+        message: 'Provide either email or mobile',
       });
     }
 
-    let user = null;
-    let mode = null; // "email" | "mobile"
+    let user;
+    let mode;
 
-    // 2️⃣ Find user by email or mobile
     if (email) {
-      const normalizedEmail = email.toLowerCase().trim();
-      user = await UserModel.findOne({ email: normalizedEmail });
+      user = await UserModel.findOne({ email });
       mode = 'email';
     }
 
-    if (!user && mobile) {
+    if (mobile) {
       user = await UserModel.findOne({ mobile });
       mode = 'mobile';
     }
 
-    // 3️⃣ Anti user-enumeration
+    // Anti enumeration
     if (!user) {
       return res.status(200).json({
         message: 'If this account exists, an OTP has been sent',
       });
     }
 
-    // 4️⃣ Already verified checks (mode-wise)
+    // Already verified check
     if (mode === 'email' && user.isEmailVerified) {
       return res.status(400).json({
         message: 'Email already verified',
@@ -737,10 +737,9 @@ export const resendOtp = async (req, res, next) => {
       });
     }
 
-    // 5️⃣ Cooldown (1 minute)
+    // Cooldown check (1 min)
     const now = Date.now();
-
-    if (user.lastOtpSentAt && now - user.lastOtpSentAt.getTime() < 60 * 1000) {
+    if (user.lastOtpSentAt && now - user.lastOtpSentAt.getTime() < 60000) {
       const remaining =
         60 - Math.floor((now - user.lastOtpSentAt.getTime()) / 1000);
 
@@ -750,37 +749,19 @@ export const resendOtp = async (req, res, next) => {
       });
     }
 
-    // 6️⃣ Generate OTPs
-    const emailOtp = generateOtp();
-    // const mobileOtp = generateOtp();
+    const otp = generateOtp();
 
-    // 7️⃣ Save OTPs
-    user.otp = emailOtp;
+    user.otp = otp;
     user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
     user.lastOtpSentAt = new Date();
 
-    // user.mobileOtp = mobileOtp;
-    // user.mobileOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    // 8️⃣ Send based on mode
-    if (mode === 'email') {
-      await sendFormEmail(user.email, emailOtp);
-    }
-
-    // if (mode === 'mobile') {
-    //   // 🔽 TEMP: CONSOLE MOBILE OTP
-    //   console.log(`📱 Resent Mobile OTP for ${user.mobile}: ${mobileOtp}`);
-
-    //   /*
-    //     HERE PAID SMS CODE AAYEGA
-    //     await sendSms(user.mobile, `Your OTP is ${mobileOtp}`);
-    //   */
-    // }
-
     await user.save();
 
-    // 9️⃣ Mode-wise response message
-    return res.json({
+    if (mode === 'email') {
+      await sendFormEmail(user.email, otp);
+    }
+
+    return res.status(200).json({
       message:
         mode === 'email'
           ? 'Email OTP resent successfully'
@@ -793,35 +774,33 @@ export const resendOtp = async (req, res, next) => {
 
 export const forgetPassword = async (req, res, next) => {
   try {
-    const { email } = req.body;
-    const normalizedEmail = email.toLowerCase().trim();
+    let { email } = req.body;
+    email = email?.toLowerCase().trim();
 
-    // ✅ ADD: input validation
     if (!email) {
       return res.status(400).json({
         message: 'Email is required',
       });
     }
 
-    const user = await UserModel.findOne({ email: normalizedEmail });
+    const user = await UserModel.findOne({ email });
 
-    // ✅ ADD: generic response (anti user-enumeration)
+    // Anti enumeration
     if (!user) {
       return res.status(200).json({
         message: 'If this email exists, an OTP has been sent',
       });
     }
 
-    // ✅ ADD: only verified users can reset password
-    if (!user.isEmailVerified) {
-      return res.status(400).json({
-        message: 'Email is not verified',
+    if (user.status !== 'active') {
+      return res.status(403).json({
+        message: 'Account is blocked or inactive',
       });
     }
 
     const now = Date.now();
 
-    if (user.lastOtpSentAt && now - user.lastOtpSentAt.getTime() < 60 * 1000) {
+    if (user.lastOtpSentAt && now - user.lastOtpSentAt.getTime() < 60000) {
       const remaining =
         60 - Math.floor((now - user.lastOtpSentAt.getTime()) / 1000);
 
@@ -831,27 +810,16 @@ export const forgetPassword = async (req, res, next) => {
       });
     }
 
-    const emailOtp = generateOtp();
-    const mobileOtp = generateOtp();
+    const otp = generateOtp();
 
-    user.otp = emailOtp;
+    user.otp = otp;
     user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
     user.lastOtpSentAt = new Date();
-    user.mobileOtp = mobileOtp;
-    user.mobileOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
-    await sendFormEmail(user.email, emailOtp);
-
-    // 🔽 TEMP: CONSOLE MOBILE OTP
-    console.log(`📱 Resent Mobile OTP for ${user.mobile}: ${mobileOtp}`);
-
-    /*
- HERE PAID SMS CODE AAYEGA
-*/
 
     await user.save();
+    await sendFormEmail(user.email, otp);
 
-    res.status(200).json({
+    return res.status(200).json({
       message: 'If this email exists, an OTP has been sent',
     });
   } catch (error) {
@@ -861,10 +829,10 @@ export const forgetPassword = async (req, res, next) => {
 
 export const changePassword = async (req, res, next) => {
   try {
-    const { email, otp, newPassword } = req.body;
-    const normalizedEmail = email.toLowerCase().trim();
+    let { email, otp, newPassword } = req.body;
 
-    // ✅ ADD: input validation
+    email = email?.toLowerCase().trim();
+
     if (!email || !otp || !newPassword) {
       return res.status(400).json({
         message: 'Email, OTP and new password are required',
@@ -877,11 +845,8 @@ export const changePassword = async (req, res, next) => {
       });
     }
 
-    const user = await UserModel.findOne({ email: normalizedEmail }).select(
-      '+password'
-    );
+    const user = await UserModel.findOne({ email }).select('+password');
 
-    // ✅ ADD: generic response
     if (!user) {
       return res.status(400).json({
         message: 'Invalid OTP or request expired',
@@ -894,7 +859,6 @@ export const changePassword = async (req, res, next) => {
       });
     }
 
-    // ✅ SAFE OTP check
     if (
       !user.otp ||
       user.otp !== otp ||
@@ -906,7 +870,6 @@ export const changePassword = async (req, res, next) => {
       });
     }
 
-    // ✅ PREVENT old password reuse
     const isSamePassword = await bcrypt.compare(newPassword, user.password);
     if (isSamePassword) {
       return res.status(400).json({
@@ -917,10 +880,11 @@ export const changePassword = async (req, res, next) => {
     user.password = newPassword;
     user.otp = null;
     user.otpExpiresAt = null;
+    user.lastOtpSentAt = null;
 
     await user.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       message: 'Password changed successfully',
     });
   } catch (error) {
