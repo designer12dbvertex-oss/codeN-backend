@@ -1,41 +1,3 @@
-// import express from 'express';
-// import { protect } from '../../../middleware/authMiddleware.js';
-// import { authorize } from '../../../middleware/Authorization.middleware.js';
-// import {
-//   createChapter,
-//   getAllChapters,
-//   getChapterById,
-//   updateChapter,
-//   deleteChapter,
-//   toggleChapterStatus,
-// } from '../../../controllers/admin/Chapter/chapter.controller.js';
-// import upload from '../../../middleware/upload.js';
-
-// const router = express.Router();
-
-// // All routes are protected and require admin role
-// router.use(protect);
-// router.use(authorize('admin'));
-
-// // Create chapter
-// router.post('/', upload.single('image'), createChapter);
-
-// // Get all chapters
-// router.get('/', getAllChapters);
-
-// // Get single chapter
-// router.get('/:id', getChapterById);
-
-// // Update chapter
-// router.patch('/:id', upload.single('image'), updateChapter);
-
-// // Delete chapter (soft delete)
-// router.delete('/:id', deleteChapter);
-
-// // Toggle chapter status (enable/disable)
-// router.patch('/:id/status', toggleChapterStatus);
-
-// export default router;
 
 import express from 'express';
 import { protect } from '../../../middleware/authMiddleware.js';
@@ -81,14 +43,12 @@ router.use(authorize('admin'));
  *             required:
  *               - name
  *               - subSubjectId
- *               - topicId
  *             properties:
  *               name:
  *                 type: string
  *               subSubjectId:
  *                 type: string
- *               topicId:
- *                 type: string
+ *           
  *               order:
  *                 type: number
  *               image:
