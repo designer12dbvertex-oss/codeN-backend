@@ -9,6 +9,8 @@ import {
   updateMCQ,
   deleteMCQ,
   toggleMCQStatus,
+  getChaptersBySubSubject,
+  getTopicsByChapter,
 } from '../../../controllers/admin/MCQs/mcq.controller.js';
 
 const router = express.Router();
@@ -42,7 +44,10 @@ const mcqUploadFields = uploadAdminProfile.fields([
  * (Accepts multipart/form-data)
  */
 router.post('/', mcqUploadFields, createMCQ);
-
+/**
+ * Get Chapters by Subject + SubSubject
+ */
+router.get('/chapters', getChaptersBySubSubject);
 /**
  * Get all MCQs with filters (courseId, subjectId, subSubjectId, topicId, chapterId, tagId, status, difficulty)
  * GET /api/admin/mcqs
@@ -72,5 +77,10 @@ router.delete('/:id', deleteMCQ);
  * PATCH /api/admin/mcqs/:id/status
  */
 router.patch('/:id/status', toggleMCQStatus);
+
+/**
+ * Get Topics by Chapter
+ */
+router.get('/topics', getTopicsByChapter);
 
 export default router;

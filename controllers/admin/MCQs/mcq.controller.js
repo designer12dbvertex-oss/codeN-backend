@@ -17,6 +17,7 @@ export const createMCQ = async (req, res, next) => {
   try {
     const {
       chapterId,
+      topicId,
       tagId,
       testId: rawTestId,
       question,
@@ -76,11 +77,25 @@ export const createMCQ = async (req, res, next) => {
         .status(404)
         .json({ success: false, message: 'Chapter not found' });
 
-    const topic = await Topic.findById(chapter.topicId);
+    if (!topicId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Topic ID is required',
+      });
+    }
+
+    const topic = await Topic.findById(topicId);
     if (!topic)
       return res
         .status(404)
         .json({ success: false, message: 'Topic not found' });
+
+    if (topic.chapterId.toString() !== chapterId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Topic does not belong to the selected Chapter',
+      });
+    }
 
     const subSubject = await SubSubject.findById(chapter.subSubjectId);
     if (!subSubject)
@@ -221,10 +236,13 @@ export const getAllMCQs = async (req, res, next) => {
     if (difficulty) filter.difficulty = difficulty;
 
     const mcqs = await MCQ.find(filter)
-      .populate(
-        'courseId subjectId subSubjectId chapterId tagId testId',
-        'name testTitle'
-      )
+      .populate('courseId', 'name')
+      .populate('subjectId', 'name')
+      .populate('subSubjectId', 'name')
+      .populate('chapterId', 'name')
+      .populate('topicId', 'name')
+      .populate('tagId', 'name')
+      .populate('testId', 'testTitle')
       .sort({ createdAt: -1 });
 
     const buildGroup = (tid, tName, list) => ({
@@ -332,6 +350,7 @@ export const updateMCQ = async (req, res, next) => {
 
     const {
       chapterId,
+      topicId,
       tagId,
       // mode removed
       testId,
@@ -367,12 +386,6 @@ export const updateMCQ = async (req, res, next) => {
           .status(404)
           .json({ success: false, message: 'Chapter not found' });
 
-      const topic = await Topic.findById(ch.topicId);
-      if (!topic)
-        return res
-          .status(404)
-          .json({ success: false, message: 'Topic not found' });
-
       const ss = await SubSubject.findById(ch.subSubjectId);
       if (!ss)
         return res
@@ -388,8 +401,25 @@ export const updateMCQ = async (req, res, next) => {
       mcq.courseId = s.courseId;
       mcq.subjectId = s._id;
       mcq.subSubjectId = ss._id;
-      mcq.topicId = topic._id;
       mcq.chapterId = chapterId;
+    }
+
+    /* TOPIC CHANGE */
+    if (topicId && topicId !== mcq.topicId?.toString()) {
+      const t = await Topic.findById(topicId);
+      if (!t)
+        return res
+          .status(404)
+          .json({ success: false, message: 'Topic not found' });
+
+      if (t.chapterId.toString() !== (chapterId || mcq.chapterId.toString())) {
+        return res.status(400).json({
+          success: false,
+          message: 'Topic does not belong to the selected Chapter',
+        });
+      }
+
+      mcq.topicId = topicId;
     }
 
     /* TAG */
@@ -587,6 +617,66 @@ export const toggleMCQStatus = async (req, res, next) => {
     res
       .status(200)
       .json({ success: true, message: `MCQ status updated to ${status}` });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Chapters by Subject & SubSubject
+ * GET /api/admin/mcqs/chapters?subjectId=&subSubjectId=
+ */
+export const getChaptersBySubSubject = async (req, res, next) => {
+  try {
+    const { subjectId, subSubjectId } = req.query;
+
+    if (!subjectId || !subSubjectId) {
+      return res.status(400).json({
+        success: false,
+        message: 'subjectId and subSubjectId are required',
+      });
+    }
+
+    const chapters = await Chapter.find({ subSubjectId })
+      .select('_id name')
+      .sort({ name: 1 })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: chapters.length,
+      data: chapters,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Topics by Chapter
+ * GET /api/admin/mcqs/topics?chapterId=
+ */
+export const getTopicsByChapter = async (req, res, next) => {
+  try {
+    const { chapterId } = req.query;
+
+    if (!chapterId) {
+      return res.status(400).json({
+        success: false,
+        message: 'chapterId is required',
+      });
+    }
+
+    const topics = await Topic.find({ chapterId })
+      .select('_id name')
+      .sort({ name: 1 })
+      .lean();
+
+    res.status(200).json({
+      success: true,
+      count: topics.length,
+      data: topics,
+    });
   } catch (error) {
     next(error);
   }
