@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       unique: true,
+      sparse: true,
       default: null,
     },
 
@@ -114,16 +115,20 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
-    isEmailVerified: {
-      type: Boolean,
-      default: false,
+    lastOtpSentAt: {
+      type: Date,
+      default: null,
     },
-    // 🔽 ADD THIS (mobile OTP)
+
     mobileOtp: {
       type: String,
       default: null,
     },
     mobileOtpExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    lastMobileOtpSentAt: {
       type: Date,
       default: null,
     },
@@ -154,8 +159,10 @@ const userSchema = new mongoose.Schema(
       enum: ['free', 'starter', 'professional', 'premium_plus'],
       default: 'free',
     },
-    completedChapters: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' }],
-completedModulesCount: { type: Number, default: 0 }
+    completedChapters: [
+      { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' },
+    ],
+    completedModulesCount: { type: Number, default: 0 },
   },
 
   { timestamps: true }

@@ -25,11 +25,11 @@ import VideoProgress from '../../models/admin/Video/videoprogess.js';
 import Tag from '../../models/admin/Tags/tag.model.js';
 import TestAttempt from '../../models/user/testAttemptModel.js';
 import Bookmark from '../../models/admin/bookmarkModel.js';
-import admin from "firebase-admin"
+import admin from 'firebase-admin';
 
 const updateUserChapterProgress = async (userId, chapterId) => {
   const user = await UserModel.findById(userId);
-  
+
   // Agar user nahi milta ya chapter pehle se added hai, toh purana count return karo
   if (!user || user.completedChapters.includes(chapterId)) {
     return user ? user.completedModulesCount : 0;
@@ -38,9 +38,9 @@ const updateUserChapterProgress = async (userId, chapterId) => {
   // Agar naya chapter hai toh update karo
   const updatedUser = await UserModel.findByIdAndUpdate(
     userId,
-    { 
+    {
       $addToSet: { completedChapters: chapterId },
-      $inc: { completedModulesCount: 1 } 
+      $inc: { completedModulesCount: 1 },
     },
     { new: true }
   );
@@ -133,103 +133,107 @@ const updateUserChapterProgress = async (userId, chapterId) => {
 //   }
 // };
 
+export const loginByGoogle = async (req, res, next) => {
+  console.log('Server time before verify:', new Date().toISOString());
+  try {
+    const { token } = req.body;
+    console.log('Incoming Token:', token ? 'Token Received' : 'No Token');
 
-
-  export const loginByGoogle = async (req, res, next) => {
-    console.log("Server time before verify:", new Date().toISOString());
+    if (!token) {
+      return res.status(400).json({ message: 'Google ID token is required' });
+    }
+    console.log('Token Length:', token.length);
+    console.log('Token Starts With:', token.substring(0, 10));
+    let decodedToken;
     try {
-      const { token } = req.body;
-      console.log('Incoming Token:', token ? "Token Received" : "No Token");
-
-      if (!token) {
-        return res.status(400).json({ message: 'Google ID token is required' });
-      }
-  console.log("Token Length:", token.length); 
-  console.log("Token Starts With:", token.substring(0, 10));
-      let decodedToken;
-      try {
-        // Backend project ID log kar rahe hain verify karne ke liye
-        const currentProjectId = admin.app().options.projectId;
-        console.log("🔍 Verifying token for project:", currentProjectId);
-  console.log("Token Length:", token.length); 
-  console.log("Token Starts With:", token.substring(0, 10));
-        // Firebase Token Verify karna
-        decodedToken = await admin.auth().verifyIdToken(token);
-      console.log("✅ Token VERIFIED successfully!");
-    console.log("Decoded UID:", decodedToken.uid);
-    console.log("Decoded email:", decodedToken.email);
-    console.log("Full payload:", JSON.stringify(decodedToken, null, 2));
-
-      } catch (err) {
-        console.error("❌ VERIFY ERROR DETAILS:");
-    console.error("Error code:", err.code);
-    console.error("Error message:", err.message);
-    console.error("Full error object:", err);
-        return res.status(401).json({ 
-          message: 'Invalid or Expired Firebase Token',
-          error_detail: err.message 
-        });
-      }
-
-      // Yahan tak tabhi pahunchega jab token SUCCESSFUL verify ho chuka ho
-      const email = decodedToken.email?.toLowerCase().trim();
-      const googleId = decodedToken.uid; 
-      const name = decodedToken.name || 'Google User';
-      const picture = decodedToken.picture || null;
-
-      if (!email) {
-        return res.status(400).json({ message: 'Invalid Google token payload: Email missing' });
-      }
-
-      // --- Database Logic ---
-      let user = await UserModel.findOne({ email });
-
-      if (!user) {
-        // Naya User Banana
-        user = await UserModel.create({
-          name,
-          email,
-          googleId,
-          profileImage: picture,
-          signUpBy: 'google',
-          isEmailVerified: true,
-          role: 'user',
-        });
-        console.log("🆕 New User Created via Google Sign-In");
-      } else {
-        // Existing User Update karna
-        let isUpdated = false;
-        if (!user.googleId) { user.googleId = googleId; isUpdated = true; }
-        if (!user.profileImage && picture) { user.profileImage = picture; isUpdated = true; }
-        
-        if (isUpdated) await user.save();
-        console.log("🏠 Existing User Logged In");
-      }
-
-      // JWT Token generation (Backend specific)
-      const { accessToken, refreshToken } = generateToken(user._id);
-      user.refreshToken = refreshToken;
-      await user.save();
-
-      const safeUser = user.toObject();
-      delete safeUser.password; // Password agar ho toh security ke liye delete karein
-      delete safeUser.refreshToken;
-
-      return res.status(200).json({
-        success: true,
-        accessToken,
-        refreshToken,
-        user: safeUser,
-      });
-
+      // Backend project ID log kar rahe hain verify karne ke liye
+      const currentProjectId = admin.app().options.projectId;
+      console.log('🔍 Verifying token for project:', currentProjectId);
+      console.log('Token Length:', token.length);
+      console.log('Token Starts With:', token.substring(0, 10));
+      // Firebase Token Verify karna
+      decodedToken = await admin.auth().verifyIdToken(token);
+      console.log('✅ Token VERIFIED successfully!');
+      console.log('Decoded UID:', decodedToken.uid);
+      console.log('Decoded email:', decodedToken.email);
+      console.log('Full payload:', JSON.stringify(decodedToken, null, 2));
     } catch (err) {
-      console.error("🔥 Global Google Login Error:", err); 
-      return res.status(500).json({ 
-        message: 'Internal Server Error during Google Login',
-        error_detail: err.message 
+      console.error('❌ VERIFY ERROR DETAILS:');
+      console.error('Error code:', err.code);
+      console.error('Error message:', err.message);
+      console.error('Full error object:', err);
+      return res.status(401).json({
+        message: 'Invalid or Expired Firebase Token',
+        error_detail: err.message,
       });
     }
-  };
+
+    // Yahan tak tabhi pahunchega jab token SUCCESSFUL verify ho chuka ho
+    const email = decodedToken.email?.toLowerCase().trim();
+    const googleId = decodedToken.uid;
+    const name = decodedToken.name || 'Google User';
+    const picture = decodedToken.picture || null;
+
+    if (!email) {
+      return res
+        .status(400)
+        .json({ message: 'Invalid Google token payload: Email missing' });
+    }
+
+    // --- Database Logic ---
+    let user = await UserModel.findOne({ email });
+
+    if (!user) {
+      // Naya User Banana
+      user = await UserModel.create({
+        name,
+        email,
+        googleId,
+        profileImage: picture,
+        signUpBy: 'google',
+        isEmailVerified: true,
+        role: 'user',
+      });
+      console.log('🆕 New User Created via Google Sign-In');
+    } else {
+      // Existing User Update karna
+      let isUpdated = false;
+      if (!user.googleId) {
+        user.googleId = googleId;
+        isUpdated = true;
+      }
+      if (!user.profileImage && picture) {
+        user.profileImage = picture;
+        isUpdated = true;
+      }
+
+      if (isUpdated) await user.save();
+      console.log('🏠 Existing User Logged In');
+    }
+
+    // JWT Token generation (Backend specific)
+    const { accessToken, refreshToken } = generateToken(user._id);
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    const safeUser = user.toObject();
+    delete safeUser.password; // Password agar ho toh security ke liye delete karein
+    delete safeUser.refreshToken;
+
+    return res.status(200).json({
+      success: true,
+      accessToken,
+      refreshToken,
+      user: safeUser,
+    });
+  } catch (err) {
+    console.error('🔥 Global Google Login Error:', err);
+    return res.status(500).json({
+      message: 'Internal Server Error during Google Login',
+      error_detail: err.message,
+    });
+  }
+};
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
@@ -402,6 +406,8 @@ export const register = async (req, res, next) => {
     }
 
     const emailOtp = generateOtp();
+    const now = new Date();
+
     // const mobileOtp = generateOtp();
 
     const [user] = await UserModel.create(
@@ -412,7 +418,7 @@ export const register = async (req, res, next) => {
           password,
           otp: emailOtp,
           otpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
-
+          lastOtpSentAt: now,
           // mobile,
           // mobileOtp,
           // mobileOtpExpiresAt: new Date(Date.now() + 10 * 60 * 1000),
@@ -594,11 +600,11 @@ export const login = async (req, res, next) => {
 
     if (email) {
       const normalizedEmail = email.toLowerCase().trim();
-      user = await UserModel.findOne({ email: normalizedEmail }).select(
-        '+password'
-      ).populate('collegeId', 'name') // 🔥 College ka naam lene ke liye
-      .populate('stateId', 'name')   // 🔥 State ka naam lene ke liye
-      .populate('cityId', 'name');
+      user = await UserModel.findOne({ email: normalizedEmail })
+        .select('+password')
+        .populate('collegeId', 'name') // 🔥 College ka naam lene ke liye
+        .populate('stateId', 'name') // 🔥 State ka naam lene ke liye
+        .populate('cityId', 'name');
       if (!user) return res.status(404).json({ message: 'User not found' });
       if (!user.isEmailVerified)
         return res.status(401).json({ message: 'Email not verified' });
@@ -699,9 +705,14 @@ export const resendOtp = async (req, res, next) => {
 
     // 5️⃣ Cooldown (1 minute)
     const now = Date.now();
-    if (user.otpExpiresAt && user.otpExpiresAt > now - 60 * 1000) {
+
+    if (user.lastOtpSentAt && now - user.lastOtpSentAt.getTime() < 60 * 1000) {
+      const remaining =
+        60 - Math.floor((now - user.lastOtpSentAt.getTime()) / 1000);
+
       return res.status(429).json({
-        message: 'Please wait 1 minute before requesting another OTP',
+        message: `Please wait ${remaining} seconds before requesting another OTP`,
+        retryAfterSeconds: remaining,
       });
     }
 
@@ -712,6 +723,7 @@ export const resendOtp = async (req, res, next) => {
     // 7️⃣ Save OTPs
     user.otp = emailOtp;
     user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    user.lastOtpSentAt = new Date();
 
     // user.mobileOtp = mobileOtp;
     // user.mobileOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
@@ -774,9 +786,14 @@ export const forgetPassword = async (req, res, next) => {
     }
 
     const now = Date.now();
-    if (user.otpExpiresAt && user.otpExpiresAt > now - 60 * 1000) {
+
+    if (user.lastOtpSentAt && now - user.lastOtpSentAt.getTime() < 60 * 1000) {
+      const remaining =
+        60 - Math.floor((now - user.lastOtpSentAt.getTime()) / 1000);
+
       return res.status(429).json({
-        message: 'Please wait 1 minute before requesting another OTP',
+        message: `Please wait ${remaining} seconds before requesting another OTP`,
+        retryAfterSeconds: remaining,
       });
     }
 
@@ -785,7 +802,7 @@ export const forgetPassword = async (req, res, next) => {
 
     user.otp = emailOtp;
     user.otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
-
+    user.lastOtpSentAt = new Date();
     user.mobileOtp = mobileOtp;
     user.mobileOtpExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -909,11 +926,10 @@ export const logout = async (req, res, next) => {
 export const getMe = async (req, res, next) => {
   try {
     // req.user protect middleware se aata hai
-    const user = await UserModel.findById(req.user._id).select(
-      '-password -otp -otpExpiresAt -refreshToken'
-    )
-     .populate('collegeId', 'name') // 🔥 College ka naam lene ke liye
-      .populate('stateId', 'name')   // 🔥 State ka naam lene ke liye
+    const user = await UserModel.findById(req.user._id)
+      .select('-password -otp -otpExpiresAt -refreshToken')
+      .populate('collegeId', 'name') // 🔥 College ka naam lene ke liye
+      .populate('stateId', 'name') // 🔥 State ka naam lene ke liye
       .populate('cityId', 'name');
 
     if (!user) {
@@ -989,11 +1005,10 @@ export const getUserData = async (req, res, next) => {
       });
     }
 
-    const userData = await UserModel.findById(id).select(
-      '-password -otp -otpExpiresAt'
-    )
-    .populate('collegeId', 'name') // 🔥 College ka naam lene ke liye
-      .populate('stateId', 'name')   // 🔥 State ka naam lene ke liye
+    const userData = await UserModel.findById(id)
+      .select('-password -otp -otpExpiresAt')
+      .populate('collegeId', 'name') // 🔥 College ka naam lene ke liye
+      .populate('stateId', 'name') // 🔥 State ka naam lene ke liye
       .populate('cityId', 'name');
 
     if (!userData) {
@@ -1036,41 +1051,40 @@ export const editProfileOfUser = async (req, res, next) => {
       }
     });
 
+    // ✅ COLLEGE NAME UPDATE (NO REQUIRED CITY / STATE)
+    if (req.body.collegeName) {
+      const collegeName = req.body.collegeName.trim();
 
-// ✅ COLLEGE NAME UPDATE (NO REQUIRED CITY / STATE)
-if (req.body.collegeName) {
-  const collegeName = req.body.collegeName.trim();
+      // user ka current data nikaalo
+      const currentUser = await UserModel.findById(req.user._id).select(
+        'cityId stateId'
+      );
 
-  // user ka current data nikaalo
-  const currentUser = await UserModel.findById(req.user._id)
-    .select('cityId stateId');
+      const cityId = req.body.cityId || currentUser?.cityId || null;
+      const stateId = req.body.stateId || currentUser?.stateId || null;
 
-  const cityId = req.body.cityId || currentUser?.cityId || null;
-  const stateId = req.body.stateId || currentUser?.stateId || null;
+      let collegeQuery = {
+        name: { $regex: new RegExp(`^${collegeName}$`, 'i') },
+      };
 
-  let collegeQuery = {
-    name: { $regex: new RegExp(`^${collegeName}$`, 'i') },
-  };
+      if (cityId) {
+        collegeQuery.cityId = cityId;
+      }
 
-  if (cityId) {
-    collegeQuery.cityId = cityId;
-  }
+      let college = await College.findOne(collegeQuery);
 
-  let college = await College.findOne(collegeQuery);
+      // agar college nahi mila → create kar do
+      if (!college) {
+        college = await College.create({
+          name: collegeName,
+          cityId,
+          stateId,
+          isActive: true,
+        });
+      }
 
-  // agar college nahi mila → create kar do
-  if (!college) {
-    college = await College.create({
-      name: collegeName,
-      cityId,
-      stateId,
-      isActive: true,
-    });
-  }
-
-  updateData.collegeId = college._id;
-}
-
+      updateData.collegeId = college._id;
+    }
 
     // ✅ Image upload
     if (req.file) {
@@ -1101,7 +1115,6 @@ if (req.body.collegeName) {
         });
       }
     }
-
 
     // ✅ CLASS VALIDATION
     if (updateData.classId) {
@@ -1337,7 +1350,9 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
     const userId = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-      return res.status(400).json({ success: false, message: 'Invalid subSubjectId' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid subSubjectId' });
     }
 
     // 1. Topics fetch karein
@@ -1346,10 +1361,13 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
       .sort({ order: 1 })
       .lean();
 
-    const topicIds = topics.map(t => t._id);
+    const topicIds = topics.map((t) => t._id);
 
     // 2. Chapters fetch karein
-    const chapters = await Chapter.find({ topicId: { $in: topicIds }, status: 'active' })
+    const chapters = await Chapter.find({
+      topicId: { $in: topicIds },
+      status: 'active',
+    })
       .select('name topicId order')
       .sort({ order: 1 })
       .lean();
@@ -1357,7 +1375,7 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
     // 3. User ke saare Bookmarks fetch karein
     const userBookmarks = await Bookmark.find({ userId }).lean();
     const bookmarkMap = {};
-    userBookmarks.forEach(b => {
+    userBookmarks.forEach((b) => {
       const id = b.chapterId || b.topicId || b.mcqId || b.itemId;
       if (id) {
         bookmarkMap[id.toString()] = b.category || 'general';
@@ -1370,35 +1388,35 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
       {
         $match: {
           topicId: { $in: topicIds },
-          status: 'active'
-        }
+          status: 'active',
+        },
       },
       {
         $group: {
-          _id: "$topicId",
-          totalVideos: { $sum: 1 }
-        }
-      }
+          _id: '$topicId',
+          totalVideos: { $sum: 1 },
+        },
+      },
     ]);
 
     // Count map banayein fast lookup ke liye
     const countMap = {};
-    videoCounts.forEach(vc => {
+    videoCounts.forEach((vc) => {
       countMap[vc._id.toString()] = vc.totalVideos;
     });
 
     // 5. Data Map karein aur counts + bookmarks add karein
-    const result = topics.map(topic => {
+    const result = topics.map((topic) => {
       const topicIdStr = topic._id.toString();
-      
+
       const topicChapters = chapters
-        .filter(ch => ch.topicId.toString() === topicIdStr)
-        .map(ch => {
+        .filter((ch) => ch.topicId.toString() === topicIdStr)
+        .map((ch) => {
           const chIdStr = ch._id.toString();
           return {
             ...ch,
             isBookMarked: !!bookmarkMap[chIdStr],
-            bookMarkedCategory: bookmarkMap[chIdStr] || null
+            bookMarkedCategory: bookmarkMap[chIdStr] || null,
           };
         });
 
@@ -1407,7 +1425,7 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
         videoCount: countMap[topicIdStr] || 0, // 👈 Topic wise total video count
         isBookMarked: !!bookmarkMap[topicIdStr],
         bookMarkedCategory: bookmarkMap[topicIdStr] || null,
-        chapters: topicChapters
+        chapters: topicChapters,
       };
     });
 
@@ -1459,7 +1477,7 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
 //     // 4. Data Map karein aur isBookmarked + category add karein
 //     const result = topics.map(topic => {
 //       const topicIdStr = topic._id.toString();
-      
+
 //       const topicChapters = chapters
 //         .filter(ch => ch.topicId.toString() === topicIdStr)
 //         .map(ch => {
@@ -1488,7 +1506,6 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
 //     res.status(500).json({ success: false, message: error.message });
 //   }
 // };
-
 
 export const getAllTopicsForUser = async (req, res) => {
   try {
@@ -1815,7 +1832,7 @@ export const getChaptersByTopicForUser = async (req, res) => {
     });
   }
 };
-//working one 
+//working one
 // export const getMcqsByChapter = async (req, res) => {
 //   try {
 //     const { chapterId } = req.query;
@@ -1858,7 +1875,7 @@ export const getChaptersByTopicForUser = async (req, res) => {
 
 //     // 2. User Progress Update (Single Atomic Operation)
 //     const userBeforeUpdate = await UserModel.findById(userId);
-    
+
 //     // Check karein ki kya ye chapter pehle se list mein hai?
 //     const isNewChapter = !userBeforeUpdate.completedChapters.includes(chapterId);
 
@@ -1868,9 +1885,9 @@ export const getChaptersByTopicForUser = async (req, res) => {
 //       // Agar naya chapter hai, toh array mein add karo aur count badhao
 //       const updatedUser = await UserModel.findByIdAndUpdate(
 //         userId,
-//         { 
+//         {
 //           $addToSet: { completedChapters: chapterId },
-//           $inc: { completedModulesCount: 1 } 
+//           $inc: { completedModulesCount: 1 }
 //         },
 //         { new: true }
 //       );
@@ -1881,7 +1898,7 @@ export const getChaptersByTopicForUser = async (req, res) => {
 //     res.status(200).json({
 //       success: true,
 //       mcqCount: mcqs.length,
-//       completedModulesCount: currentModulesCount, 
+//       completedModulesCount: currentModulesCount,
 //       data: mcqs,
 //     });
 
@@ -1897,7 +1914,9 @@ export const getMcqsByChapter = async (req, res) => {
     const userId = req.user._id;
 
     if (!chapterId) {
-      return res.status(400).json({ success: false, message: 'chapterId is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'chapterId is required' });
     }
 
     // 1. MCQs fetch karein
@@ -1912,10 +1931,9 @@ export const getMcqsByChapter = async (req, res) => {
     res.status(200).json({
       success: true,
       mcqCount: mcqs.length,
-      completedModulesCount: currentCount, 
+      completedModulesCount: currentCount,
       data: mcqs,
     });
-
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -2585,7 +2603,7 @@ export const updateVideoProgress = async (req, res) => {
       },
       { upsert: true, new: true } // Agar record nahi hai toh naya bana dega
     );
-    
+
     // 🔥 Helper Call: Jab video complete ho tabhi update karein
     if (status === 'completed') {
       const videoData = await Video.findById(videoId).select('chapterId');
@@ -2743,8 +2761,6 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
     next(error);
   }
 };
-
-
 
 export const getDailyMCQ = async (req, res, next) => {
   try {
@@ -3137,7 +3153,9 @@ export const toggleBookmark = async (req, res) => {
     const userId = req.user._id; // Auth middleware se milega
 
     if (!itemId || !type) {
-      return res.status(400).json({ success: false, message: "itemId and type are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: 'itemId and type are required' });
     }
 
     // Query object taiyaar karein
@@ -3155,41 +3173,42 @@ export const toggleBookmark = async (req, res) => {
     if (existingBookmark) {
       // AGAR HAI TO REMOVE KARO (Toggle OFF)
       await Bookmark.findByIdAndDelete(existingBookmark._id);
-      return res.status(200).json({ 
-        success: true, 
-        isBookmarked: false, 
-        message: "Removed from bookmarks" 
+      return res.status(200).json({
+        success: true,
+        isBookmarked: false,
+        message: 'Removed from bookmarks',
       });
     } else {
       // AGAR NAHI HAI TO ADD KARO (Toggle ON)
       // Naya data object banayein aur category add karein
       const newBookmarkData = { ...query, category: category || 'general' };
       await Bookmark.create(newBookmarkData);
-      
-      return res.status(201).json({ 
-        success: true, 
-        isBookmarked: true, 
-        message: "Added to bookmarks" 
+
+      return res.status(201).json({
+        success: true,
+        isBookmarked: true,
+        message: 'Added to bookmarks',
       });
     }
   } catch (error) {
-    console.error("Toggle Bookmark Error:", error);
+    console.error('Toggle Bookmark Error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
-
-
 
 export const getUserDashboardStats = async (req, res) => {
   try {
     const userId = req.user._id;
 
     // User model se tracking fields nikaalein
-    const user = await UserModel.findById(userId).select('completedModulesCount completedChapters');
+    const user = await UserModel.findById(userId).select(
+      'completedModulesCount completedChapters'
+    );
 
     if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: 'User not found' });
     }
 
     res.status(200).json({
@@ -3197,12 +3216,12 @@ export const getUserDashboardStats = async (req, res) => {
       data: {
         // Ye wahi count hai jo MCQ aur Video dono se update ho raha hai
         totalCompletedModules: user.completedModulesCount || 0,
-        
+
         // Agar aapko list bhi chahiye ki kaunse chapters complete hue
         completedChapterIds: user.completedChapters,
-        
+
         // Aap yahan aur bhi stats add kar sakte hain (jaise certificates, marks etc.)
-      }
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

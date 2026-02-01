@@ -1,4 +1,3 @@
-
 import express from 'express';
 import { protect } from '../../../middleware/authMiddleware.js';
 import { authorize } from '../../../middleware/Authorization.middleware.js';
@@ -48,7 +47,7 @@ router.use(authorize('admin'));
  *                 type: string
  *               subSubjectId:
  *                 type: string
- *           
+ *
  *               order:
  *                 type: number
  *               image:
