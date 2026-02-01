@@ -12,6 +12,16 @@ export const createSubject = async (req, res, next) => {
 
     // Verify course exists
     const course = await Course.findById(courseId);
+    // 🔒 Max 3 subjects per course allowed
+    const subjectCount = await Subject.countDocuments({ courseId });
+
+    if (subjectCount >= 3) {
+      return res.status(400).json({
+        success: false,
+        message: 'Maximum 3 subjects allowed per course',
+      });
+    }
+
     if (!course) {
       return res.status(404).json({
         success: false,
