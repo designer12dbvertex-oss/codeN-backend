@@ -1022,7 +1022,7 @@ export const editProfileOfUser = async (req, res, next) => {
       'countryId',
       'stateId',
       'cityId',
-      'collegeId',
+
       'classId',
       'passingYear',
       'admissionYear',
@@ -1035,6 +1035,42 @@ export const editProfileOfUser = async (req, res, next) => {
         updateData[field] = req.body[field];
       }
     });
+
+
+// ✅ COLLEGE NAME UPDATE (NO REQUIRED CITY / STATE)
+if (req.body.collegeName) {
+  const collegeName = req.body.collegeName.trim();
+
+  // user ka current data nikaalo
+  const currentUser = await UserModel.findById(req.user._id)
+    .select('cityId stateId');
+
+  const cityId = req.body.cityId || currentUser?.cityId || null;
+  const stateId = req.body.stateId || currentUser?.stateId || null;
+
+  let collegeQuery = {
+    name: { $regex: new RegExp(`^${collegeName}$`, 'i') },
+  };
+
+  if (cityId) {
+    collegeQuery.cityId = cityId;
+  }
+
+  let college = await College.findOne(collegeQuery);
+
+  // agar college nahi mila → create kar do
+  if (!college) {
+    college = await College.create({
+      name: collegeName,
+      cityId,
+      stateId,
+      isActive: true,
+    });
+  }
+
+  updateData.collegeId = college._id;
+}
+
 
     // ✅ Image upload
     if (req.file) {
@@ -1066,16 +1102,6 @@ export const editProfileOfUser = async (req, res, next) => {
       }
     }
 
-    // ✅ COLLEGE VALIDATION
-    if (updateData.collegeId) {
-      const validCollege = await College.findById(updateData.collegeId);
-      if (!validCollege) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid college',
-        });
-      }
-    }
 
     // ✅ CLASS VALIDATION
     if (updateData.classId) {
@@ -1096,7 +1122,7 @@ export const editProfileOfUser = async (req, res, next) => {
         new: true,
         select: '-password -otp -otpExpiresAt',
       }
-    );
+    ).populate('collegeId', 'name');
 
     if (!updatedUser) {
       return res.status(404).json({
@@ -1330,8 +1356,6 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
 
     // 3. User ke saare Bookmarks fetch karein
     const userBookmarks = await Bookmark.find({ userId }).lean();
-
-    // Ek Map banayein taaki ID se category turant mil jaye
     const bookmarkMap = {};
     userBookmarks.forEach(b => {
       const id = b.chapterId || b.topicId || b.mcqId || b.itemId;
@@ -1340,7 +1364,30 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
       }
     });
 
-    // 4. Data Map karein aur isBookmarked + category add karein
+    // 4. Video Counts fetch karein (Topic-wise)
+    // Hum aggregation use kar rahe hain taaki saare topics ka count ek baar mein mil jaye
+    const videoCounts = await Video.aggregate([
+      {
+        $match: {
+          topicId: { $in: topicIds },
+          status: 'active'
+        }
+      },
+      {
+        $group: {
+          _id: "$topicId",
+          totalVideos: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Count map banayein fast lookup ke liye
+    const countMap = {};
+    videoCounts.forEach(vc => {
+      countMap[vc._id.toString()] = vc.totalVideos;
+    });
+
+    // 5. Data Map karein aur counts + bookmarks add karein
     const result = topics.map(topic => {
       const topicIdStr = topic._id.toString();
       
@@ -1351,14 +1398,15 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
           return {
             ...ch,
             isBookMarked: !!bookmarkMap[chIdStr],
-            bookMarkedCategory  : bookmarkMap[chIdStr] || null // Agar bookmarked hai to category dikhayega
+            bookMarkedCategory: bookmarkMap[chIdStr] || null
           };
         });
 
       return {
         ...topic,
+        videoCount: countMap[topicIdStr] || 0, // 👈 Topic wise total video count
         isBookMarked: !!bookmarkMap[topicIdStr],
-        bookMarkedCategory  : bookmarkMap[topicIdStr] || null, // Topic ki category
+        bookMarkedCategory: bookmarkMap[topicIdStr] || null,
         chapters: topicChapters
       };
     });
@@ -1376,62 +1424,58 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
 // export const getTopicsWithChaptersForUser = async (req, res) => {
 //   try {
 //     const { subSubjectId } = req.params;
+//     const userId = req.user._id;
 
 //     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: 'Invalid subSubjectId' });
+//       return res.status(400).json({ success: false, message: 'Invalid subSubjectId' });
 //     }
 
-//     // 1) Pehle us Sub-Subject ke saare ACTIVE Topics nikaalo
-//     const topics = await Topic.find({
-//       subSubjectId,
-//       status: 'active',
-//     })
+//     // 1. Topics fetch karein
+//     const topics = await Topic.find({ subSubjectId, status: 'active' })
 //       .select('name description order')
 //       .sort({ order: 1 })
 //       .lean();
 
-//     const topicIds = topics.map((t) => t._id);
+//     const topicIds = topics.map(t => t._id);
 
-//     // 2) Un Topics ke andar ke ACTIVE Chapters nikaalo
-//     const chapters = await Chapter.find({
-//       topicId: { $in: topicIds },
-//       status: 'active',
-//     })
+//     // 2. Chapters fetch karein
+//     const chapters = await Chapter.find({ topicId: { $in: topicIds }, status: 'active' })
 //       .select('name topicId order')
 //       .sort({ order: 1 })
 //       .lean();
 
-//     // 3) Aggregation se har Topic ke Videos ka COUNT nikaalo (Efficiency ke liye)
-//     const videoCounts = await Video.aggregate([
-//       {
-//         $match: {
-//           topicId: { $in: topicIds },
-//           status: 'active',
-//         },
-//       },
-//       {
-//         $group: {
-//           _id: '$topicId',
-//           totalVideos: { $sum: 1 },
-//         },
-//       },
-//     ]);
+//     // 3. User ke saare Bookmarks fetch karein
+//     const userBookmarks = await Bookmark.find({ userId }).lean();
 
-//     // 4) Grouping Logic: Topics + Chapters + Video Count ko merge karna
-//     const result = topics.map((topic) => {
-//       // Is topic ke liye count dhoondo
-//       const countData = videoCounts.find(
-//         (v) => v._id.toString() === topic._id.toString()
-//       );
+//     // Ek Map banayein taaki ID se category turant mil jaye
+//     const bookmarkMap = {};
+//     userBookmarks.forEach(b => {
+//       const id = b.chapterId || b.topicId || b.mcqId || b.itemId;
+//       if (id) {
+//         bookmarkMap[id.toString()] = b.category || 'general';
+//       }
+//     });
+
+//     // 4. Data Map karein aur isBookmarked + category add karein
+//     const result = topics.map(topic => {
+//       const topicIdStr = topic._id.toString();
+      
+//       const topicChapters = chapters
+//         .filter(ch => ch.topicId.toString() === topicIdStr)
+//         .map(ch => {
+//           const chIdStr = ch._id.toString();
+//           return {
+//             ...ch,
+//             isBookMarked: !!bookmarkMap[chIdStr],
+//             bookMarkedCategory  : bookmarkMap[chIdStr] || null // Agar bookmarked hai to category dikhayega
+//           };
+//         });
 
 //       return {
 //         ...topic,
-//         videoCount: countData ? countData.totalVideos : 0, // Agar video nahi hai toh 0 dikhega
-//         chapters: chapters.filter(
-//           (ch) => ch.topicId.toString() === topic._id.toString()
-//         ),
+//         isBookMarked: !!bookmarkMap[topicIdStr],
+//         bookMarkedCategory  : bookmarkMap[topicIdStr] || null, // Topic ki category
+//         chapters: topicChapters
 //       };
 //     });
 
@@ -1444,6 +1488,8 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
 //     res.status(500).json({ success: false, message: error.message });
 //   }
 // };
+
+
 export const getAllTopicsForUser = async (req, res) => {
   try {
     const topics = await Topic.find({ status: 'active' })
