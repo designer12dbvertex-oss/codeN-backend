@@ -583,62 +583,95 @@ export const verifyMobile = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    const { email, mobile, password } = req.body;
-    if (email && mobile) {
+    let { email, mobile, password } = req.body;
+
+    email = email?.toLowerCase().trim();
+    mobile = mobile?.trim();
+
+    if (!password) {
       return res.status(400).json({
-        message: 'Use either email or mobile, not both',
+        message: 'Password is required',
       });
     }
 
-    if ((!email && !mobile) || !password) {
+    if ((!email && !mobile) || (email && mobile)) {
       return res.status(400).json({
-        message: 'Email or Mobile and password are required',
+        message: 'Provide either email or mobile (not both)',
       });
     }
 
     let user;
 
+    // =========================
+    // 🔐 EMAIL LOGIN
+    // =========================
     if (email) {
-      const normalizedEmail = email.toLowerCase().trim();
-      user = await UserModel.findOne({ email: normalizedEmail })
+      user = await UserModel.findOne({ email })
         .select('+password')
-        .populate('collegeId', 'name') // 🔥 College ka naam lene ke liye
-        .populate('stateId', 'name') // 🔥 State ka naam lene ke liye
+        .populate('collegeId', 'name')
+        .populate('stateId', 'name')
         .populate('cityId', 'name');
-      if (!user) return res.status(404).json({ message: 'User not found' });
-      if (!user.isEmailVerified)
-        return res.status(401).json({ message: 'Email not verified' });
+
+      if (!user) {
+        return res.status(404).json({
+          message: 'User not found',
+        });
+      }
+
+      // 🔥 AUTO VERIFY IF FALSE
+      if (user.isEmailVerified !== true) {
+        user.isEmailVerified = true;
+        await user.save();
+      }
     }
 
-    // if (mobile) {
-    //   user = await UserModel.findOne({ mobile }).select('+password');
-    //   if (!user) return res.status(404).json({ message: 'User not found' });
-    //   if (!user.isMobileVerified)
-    //     return res.status(401).json({ message: 'Mobile not verified' });
-    // }
-
+    // =========================
+    // 📱 MOBILE LOGIN
+    // =========================
     if (mobile) {
-      user = await UserModel.findOne({ mobile }).select('+password');
-      if (!user) return res.status(404).json({ message: 'User not found' });
-      // ✅ mobile verification check removed
+      user = await UserModel.findOne({ mobile })
+        .select('+password')
+        .populate('collegeId', 'name')
+        .populate('stateId', 'name')
+        .populate('cityId', 'name');
+
+      if (!user) {
+        return res.status(404).json({
+          message: 'User not found',
+        });
+      }
     }
 
+    // =========================
+    // 🚫 STATUS CHECK
+    // =========================
     if (user.status !== 'active') {
-      return res
-        .status(403)
-        .json({ message: 'Account is blocked or inactive' });
+      return res.status(403).json({
+        message: 'Account is blocked or inactive',
+      });
     }
 
+    // =========================
+    // 🔑 PASSWORD CHECK
+    // =========================
     const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({
+        message: 'Invalid credentials',
+      });
     }
 
+    // =========================
+    // 🎟 TOKEN GENERATION
+    // =========================
     const { accessToken, refreshToken } = generateToken(user._id);
+
     user.refreshToken = refreshToken;
     await user.save();
 
     const safeUser = user.toObject();
+
     delete safeUser.password;
     delete safeUser.otp;
     delete safeUser.otpExpiresAt;
@@ -646,7 +679,8 @@ export const login = async (req, res, next) => {
     delete safeUser.mobileOtpExpiresAt;
     delete safeUser.refreshToken;
 
-    res.json({
+    return res.status(200).json({
+      success: true,
       message: 'Login successful',
       user: safeUser,
       accessToken,
