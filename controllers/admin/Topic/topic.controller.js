@@ -100,6 +100,44 @@ export const getTopicsByChapter = async (req, res) => {
   }
 };
 
+
+
+
+export const getTopicsByChapterId = async (req, res) => {
+  try {
+    const { chapterId } = req.params;
+
+    // Database mein topics dhoondo jo us Chapter ID se jude hain
+    const topics = await Topic.find({ 
+      chapterId: chapterId,
+      status: 'active' // Sirf active topics dikhane ke liye
+    })
+    .sort({ order: 1 }) // Order ke hisaab se sequence mein (1, 2, 3...)
+    .populate('chapterId', 'name'); // Chapter ka naam bhi saath ayega
+
+    if (!topics || topics.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No topics found for this chapter"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: topics.length,
+      data: topics
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message
+    });
+  }
+};
+
+
+
 // ==========================
 // GET ALL TOPICS
 // ==========================
