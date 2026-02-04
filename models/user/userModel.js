@@ -70,6 +70,21 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    usedPromoCodes: [
+    {
+      promoId: { type: mongoose.Schema.Types.ObjectId, ref: 'PromoCode' },
+      appliedAt: { type: Date, default: Date.now }
+    }
+  ],
+  usageLimitPerUser: { type: Number, default: 1 },
+  
+  // Current Subscription track karne ke liye (Optional but Recommended)
+  subscription: {
+    planId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionPlan' },
+    startDate: Date,
+    endDate: Date,
+    status: { type: String, enum: ['active', 'expired', 'inactive'], default: 'inactive' }
+  },
 
     password: {
       type: String,
@@ -163,7 +178,9 @@ const userSchema = new mongoose.Schema(
       { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' },
     ],
     completedModulesCount: { type: Number, default: 0 },
+
   },
+  
 
   { timestamps: true }
 );
