@@ -22,6 +22,13 @@ const mcqSchema = new mongoose.Schema(
       ref: 'Test',
       default: null,
     },
+
+    testMode: {
+      type: String,
+      enum: ['regular', 'exam'],
+      default: null,
+    },
+
     topicId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Topic',

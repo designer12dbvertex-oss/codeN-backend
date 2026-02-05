@@ -1437,73 +1437,8 @@ export const getTopicsWithChaptersForUser = async (req, res) => {
   }
 };
 
-// export const getTopicsWithChaptersForUser = async (req, res) => {
-//   try {
-//     const { subSubjectId } = req.params;
-//     const userId = req.user._id;
 
-//     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-//       return res.status(400).json({ success: false, message: 'Invalid subSubjectId' });
-//     }
 
-//     // 1. Topics fetch karein
-//     const topics = await Topic.find({ subSubjectId, status: 'active' })
-//       .select('name description order')
-//       .sort({ order: 1 })
-//       .lean();
-
-//     const topicIds = topics.map(t => t._id);
-
-//     // 2. Chapters fetch karein
-//     const chapters = await Chapter.find({ topicId: { $in: topicIds }, status: 'active' })
-//       .select('name topicId order')
-//       .sort({ order: 1 })
-//       .lean();
-
-//     // 3. User ke saare Bookmarks fetch karein
-//     const userBookmarks = await Bookmark.find({ userId }).lean();
-
-//     // Ek Map banayein taaki ID se category turant mil jaye
-//     const bookmarkMap = {};
-//     userBookmarks.forEach(b => {
-//       const id = b.chapterId || b.topicId || b.mcqId || b.itemId;
-//       if (id) {
-//         bookmarkMap[id.toString()] = b.category || 'general';
-//       }
-//     });
-
-//     // 4. Data Map karein aur isBookmarked + category add karein
-//     const result = topics.map(topic => {
-//       const topicIdStr = topic._id.toString();
-
-//       const topicChapters = chapters
-//         .filter(ch => ch.topicId.toString() === topicIdStr)
-//         .map(ch => {
-//           const chIdStr = ch._id.toString();
-//           return {
-//             ...ch,
-//             isBookMarked: !!bookmarkMap[chIdStr],
-//             bookMarkedCategory  : bookmarkMap[chIdStr] || null // Agar bookmarked hai to category dikhayega
-//           };
-//         });
-
-//       return {
-//         ...topic,
-//         isBookMarked: !!bookmarkMap[topicIdStr],
-//         bookMarkedCategory  : bookmarkMap[topicIdStr] || null, // Topic ki category
-//         chapters: topicChapters
-//       };
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       count: result.length,
-//       data: result,
-//     });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
 
 export const getAllTopicsForUser = async (req, res) => {
   try {

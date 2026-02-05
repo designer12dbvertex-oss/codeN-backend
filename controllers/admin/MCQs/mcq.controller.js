@@ -49,7 +49,10 @@ export const createMCQ = async (req, res, next) => {
         });
       }
 
-      testExists = await Test.findById(testId).select('_id mcqLimit').lean();
+      testExists = await Test.findById(testId)
+        .select('_id mcqLimit testMode')
+        .lean();
+
       if (!testExists) {
         return res.status(404).json({
           success: false,
@@ -168,6 +171,7 @@ export const createMCQ = async (req, res, next) => {
     // Create MCQ (testId validated above)
     const mcq = await MCQ.create({
       testId: testId || null,
+      testMode: testExists?.testMode || null,
       courseId: subject.courseId,
       subjectId: subject._id,
       subSubjectId: subSubject._id,
@@ -246,14 +250,12 @@ export const getAllMCQs = async (req, res, next) => {
       } else if (testId) {
         filter.testId = testId; // Specific test MCQs ONLY
       }
-    } else if (testMode === 'exam' || testMode === 'regular') {
-      // Case 3 & 4: Get tests by mode and filter MCQs by those test IDs
-      const tests = await Test.find({ testMode }).select('_id').lean();
-      const testIds = tests.map((t) => t._id);
-
-      // Filter to only MCQs belonging to tests with this mode
-      filter.testId = { $in: testIds.length ? testIds : [] };
+    } else if (testMode === 'exam') {
+      filter.testMode = 'exam';
+    } else if (testMode === 'regular') {
+      filter.testMode = 'regular';
     }
+
     // Case 5: No explicit filter means return all MCQs (will be grouped by test)
 
     if (courseId) filter.courseId = courseId;
@@ -501,16 +503,21 @@ export const updateMCQ = async (req, res, next) => {
           });
         }
 
-        const t = await Test.findById(newTestId).select('_id').lean();
+        const t = await Test.findById(newTestId).select('_id testMode').lean();
+
         if (!t) {
           return res.status(404).json({
             success: false,
             message: 'Test not found',
           });
         }
-      }
 
-      mcq.testId = newTestId;
+        mcq.testId = newTestId;
+        mcq.testMode = t.testMode; // 🔥 ADD THIS
+      } else {
+        mcq.testId = null;
+        mcq.testMode = null; // 🔥 ADD THIS
+      }
     }
 
     /* QUESTION UPDATE */
