@@ -9,24 +9,19 @@ const router = express.Router();
 
 router.post('/apply', async (req, res) => {
   try {
-    const { promoCode, planId, months } = req.body;
+    const { promoCode, planId, months, userId } = req.body; 
 
-    // 1. Check karein ki user logged in hai ya nahi
-    if (!req.user || !req.user._id) {
-      return res.status(401).json({ message: "Unauthorized: No user found in request" });
-    }
-    const userId = req.user._id;
+    // Purani line ko comment hi rehne dein
+    // const userId = req.user._id; 
 
-    // 2. Promo code fetch karein
+    // 2. Promo code fetch logic (same rahega)
     const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
-    if (!promo) {
-      return res.status(400).json({ message: "Invalid or Expired Promo Code" });
-    }
+    if (!promo) return res.status(400).json({ message: "Invalid or Expired Promo Code" });
 
-    // 3. User fetch karein
-    const user = await UserModel.findById(userId);
+    // 3. User check (Ab ye body wali ID use karega)
+    const user = await UserModel.findById(userId); 
     if (!user) {
-      return res.status(404).json({ message: "User record not found in database" });
+      return res.status(404).json({ message: "User record not found. Please provide a valid 'userId' in JSON body from your database." });
     }
 
     // 4. Promo use check (Promo milne ke BAAD hi access karein)

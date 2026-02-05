@@ -1,8 +1,13 @@
 import express from 'express';
 import multer from 'multer';
 import path from 'path';
+import fs from "fs";
 // import Faculty from '../../../models/admin/faculty/faculty.model'
-import Faculty from '../../../models/admin/faculty/faculty.model.js'; // .js lagana zaroori hai
+import Faculty from '../../../models/admin/faculty/faculty.model.js';
+import Chapter from '../../../models/admin/Chapter/chapter.model.js';
+import Topic from '../../../models/admin/Topic/topic.model.js';
+
+ // .js lagana zaroori hai
 
 const router = express.Router();
 
@@ -107,5 +112,75 @@ router.delete('/delete/:id', async (req, res) => {
         res.status(500).json({ success: false, message: "Error deleting faculty", error: error.message });
     }
 });
+
+
+router.get('/sub-subject/:subSubjectId', async (req, res) => {
+  try {
+    const { subSubjectId } = req.params;
+
+    // Chapters dhoondo jo us Sub-Subject se jude hain
+    const chapters = await Chapter.find({ 
+      subSubjectId: subSubjectId,
+      status: 'active' // Sirf active chapters dikhane ke liye
+    })
+    .sort({ order: 1 }) // Order ke hisaab se sort
+    .populate('subSubjectId', 'name') // Sub-Subject ka sirf naam bhi saath ayega
+    .populate('courseId', 'name'); // Course ka naam bhi ayega
+
+    if (!chapters || chapters.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No chapters found for this sub-subject"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: chapters.length,
+      data: chapters
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message
+    });
+  }
+});
+
+
+router.get('/chapter/:chapterId', async (req, res) => {
+  try {
+    const { chapterId } = req.params;
+
+    // Topics dhoondo jo us Chapter se jude hain
+    const topics = await Topic.find({ 
+      chapterId: chapterId,
+      status: 'active' 
+    })
+    .sort({ order: 1 })
+    .populate('chapterId', 'name'); // Chapter ka naam dikhane ke liye
+
+    if (!topics || topics.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No topics found for this chapter"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: topics.length,
+      data: topics
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server Error",
+      error: error.message
+    });
+  }
+});
+
 
 export default router;
