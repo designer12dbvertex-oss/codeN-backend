@@ -1345,6 +1345,7 @@ export const getSubSubjectsBySubject = async (req, res) => {
 export const getChaptersWithTopicCountBySubSubject = async (req, res) => {
   try {
     const { subSubjectId } = req.params;
+    const userId = req.user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
       return res.status(400).json({
@@ -1353,7 +1354,6 @@ export const getChaptersWithTopicCountBySubSubject = async (req, res) => {
       });
     }
 
-    // 1️⃣ Fetch all chapters of this subSubject
     const chapters = await Chapter.find({
       subSubjectId,
       status: 'active',
@@ -1371,7 +1371,7 @@ export const getChaptersWithTopicCountBySubSubject = async (req, res) => {
 
     const chapterIds = chapters.map((ch) => ch._id);
 
-    // 2️⃣ Aggregate topic count chapter-wise
+    // Topic Count
     const topicCounts = await Topic.aggregate([
       {
         $match: {
@@ -1387,17 +1387,31 @@ export const getChaptersWithTopicCountBySubSubject = async (req, res) => {
       },
     ]);
 
-    // 3️⃣ Convert to map for fast lookup
     const topicCountMap = {};
     topicCounts.forEach((tc) => {
       topicCountMap[tc._id.toString()] = tc.totalTopicsCount;
     });
 
-    // 4️⃣ Final response format
+    // 🔥 Clean Bookmark Query
+    const bookmarks = userId
+      ? await Bookmark.find({
+          userId,
+          type: 'chapter',
+          itemId: { $in: chapterIds },
+        }).lean()
+      : [];
+
+    const bookmarkMap = {};
+    bookmarks.forEach((bm) => {
+      bookmarkMap[bm.itemId.toString()] = bm.category;
+    });
+
     const result = chapters.map((ch) => ({
       chapterId: ch._id,
       chapterName: ch.name,
       totalTopicsCount: topicCountMap[ch._id.toString()] || 0,
+      isBookmarked: !!bookmarkMap[ch._id.toString()],
+      bookmarkCategory: bookmarkMap[ch._id.toString()] || null,
     }));
 
     return res.status(200).json({
@@ -1413,37 +1427,10 @@ export const getChaptersWithTopicCountBySubSubject = async (req, res) => {
   }
 };
 
-export const getAllTopicsForUser = async (req, res) => {
-  try {
-    const topics = await Topic.find({ status: 'active' })
-      .populate({
-        path: 'subSubjectId',
-        select: 'name subjectId',
-        populate: {
-          path: 'subjectId',
-          select: 'name',
-        },
-      })
-      .select('name description order subSubjectId')
-      .sort({ order: 1 });
-
-    res.status(200).json({
-      success: true,
-      count: topics.length,
-      data: topics,
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Topics fetch nahi ho paye',
-      error: error.message,
-    });
-  }
-};
-
 export const getTopicsByChapterForUser = async (req, res) => {
   try {
     const { chapterId } = req.params;
+    const userId = req.user?._id;
 
     if (!mongoose.Types.ObjectId.isValid(chapterId)) {
       return res.status(400).json({
@@ -1452,19 +1439,55 @@ export const getTopicsByChapterForUser = async (req, res) => {
       });
     }
 
+    // 🔥 Now selecting _id + codonId
     const topics = await Topic.find({
-      chapterId: chapterId,
+      chapterId,
       status: 'active',
     })
-      .select('_id name description ')
-      .sort({ order: 1 });
+      .select('_id codonId name description')
+      .sort({ order: 1 })
+      .lean();
+
+    if (!topics.length) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
+
+    const topicIds = topics.map((t) => t._id);
+
+    // 🔥 Bookmark Query
+    const bookmarks = userId
+      ? await Bookmark.find({
+          userId,
+          type: 'topic',
+          itemId: { $in: topicIds },
+        }).lean()
+      : [];
+
+    const bookmarkMap = {};
+    bookmarks.forEach((bm) => {
+      bookmarkMap[bm.itemId.toString()] = bm.category;
+    });
+
+    const result = topics.map((topic) => ({
+      _id: topic._id,
+      codonId: topic.codonId,
+      name: topic.name,
+      description: topic.description,
+      isBookmarked: !!bookmarkMap[topic._id.toString()],
+      bookmarkCategory: bookmarkMap[topic._id.toString()] || null,
+    }));
 
     return res.status(200).json({
       success: true,
-      count: topics.length,
-      data: topics,
+      count: result.length,
+      data: result,
     });
   } catch (error) {
+    console.error('Get Topics Error:', error);
     return res.status(500).json({
       success: false,
       message: error.message,
@@ -1472,30 +1495,36 @@ export const getTopicsByChapterForUser = async (req, res) => {
   }
 };
 
-export const getSingleTopicForUser = async (req, res) => {
+export const getTopicFullDetails = async (req, res) => {
   try {
-    const { id } = req.params;
+    const { topicId } = req.params;
 
-    if (!mongoose.Types.ObjectId.isValid(id)) {
+    if (!mongoose.Types.ObjectId.isValid(topicId)) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid topic id',
+        message: 'Invalid topicId',
       });
     }
 
+    // 1️⃣ Topic with full hierarchy populate
     const topic = await Topic.findOne({
-      _id: id,
+      _id: topicId,
       status: 'active',
     })
+      .select('_id codonId name description chapterId') // ✅ codonId added
       .populate({
-        path: 'subSubjectId',
-        select: 'name subjectId',
+        path: 'chapterId',
+        select: 'name subSubjectId',
         populate: {
-          path: 'subjectId',
-          select: 'name',
+          path: 'subSubjectId',
+          select: 'name subjectId',
+          populate: {
+            path: 'subjectId',
+            select: 'name',
+          },
         },
       })
-      .select('name description order subSubjectId');
+      .lean();
 
     if (!topic) {
       return res.status(404).json({
@@ -1504,17 +1533,82 @@ export const getSingleTopicForUser = async (req, res) => {
       });
     }
 
+    // 2️⃣ Total Videos
+    const totalVideos = await Video.countDocuments({
+      topicId,
+      status: 'active',
+    });
+
+    // 3️⃣ Topic belongs to single chapter
+    const totalChapters = topic.chapterId ? 1 : 0;
+
+    // 4️⃣ Total MCQs (chapter based)
+    const totalMcqs = await MCQ.countDocuments({
+      chapterId: topic.chapterId?._id,
+      status: 'active',
+    });
+
+    // 5️⃣ Notes Count
+    const totalNotes = await Video.countDocuments({
+      topicId,
+      status: 'active',
+      notesUrl: { $exists: true, $ne: null },
+    });
+
+    // 6️⃣ Rating
+    const ratingData = await Rating.aggregate([
+      {
+        $match: {
+          targetType: 'topic',
+          targetId: new mongoose.Types.ObjectId(topicId),
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          totalReviews: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const avgRating = ratingData[0]?.avgRating || 0;
+    const totalReviews = ratingData[0]?.totalReviews || 0;
+
+    // ✅ CLEAN RESPONSE (codonId included)
     res.status(200).json({
       success: true,
-      data: topic,
+      data: {
+        topic: {
+          id: topic._id,
+          codonId: topic.codonId, // ✅ Added
+          name: topic.name,
+          description: topic.description,
+        },
+        hierarchy: {
+          subject: topic.chapterId?.subSubjectId?.subjectId?.name || null,
+          subSubject: topic.chapterId?.subSubjectId?.name || null,
+          chapter: topic.chapterId?.name || null,
+        },
+        stats: {
+          chapters: totalChapters,
+          videos: totalVideos,
+          mcqs: totalMcqs,
+          notes: totalNotes,
+          rating: Number(avgRating.toFixed(1)),
+          reviews: totalReviews,
+        },
+      },
     });
   } catch (error) {
+    console.error('Topic Full Details Error:', error);
     res.status(500).json({
       success: false,
       message: error.message,
     });
   }
 };
+
 // export const getChaptersByTopicForUser = async (req, res) => {
 //   try {
 //     const { topicId } = req.params;
@@ -2724,49 +2818,46 @@ export const getBookmarksList = async (req, res) => {
 export const toggleBookmark = async (req, res) => {
   try {
     const { type, itemId, category } = req.body;
-    const userId = req.user._id; // Auth middleware se milega
+    const userId = req.user._id;
 
     if (!itemId || !type) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'itemId and type are required' });
+      return res.status(400).json({
+        success: false,
+        message: 'itemId and type are required',
+      });
     }
 
-    // Query object taiyaar karein
-    let query = { userId, type };
+    const query = { userId, type, itemId };
 
-    // Item type ke basis par query set karein
-    if (type === 'mcq') query.mcqId = itemId;
-    else if (type === 'pearl') query.pearlId = itemId;
-    else if (type === 'chapter') query.chapterId = itemId;
-    else if (type === 'sub-subject') query.subSubjectId = itemId;
+    const existing = await Bookmark.findOne(query);
 
-    // Check karein ki kya pehle se bookmark maujood hai
-    const existingBookmark = await Bookmark.findOne(query);
-
-    if (existingBookmark) {
-      // AGAR HAI TO REMOVE KARO (Toggle OFF)
-      await Bookmark.findByIdAndDelete(existingBookmark._id);
+    if (existing) {
+      await Bookmark.deleteOne(query);
       return res.status(200).json({
         success: true,
         isBookmarked: false,
         message: 'Removed from bookmarks',
       });
-    } else {
-      // AGAR NAHI HAI TO ADD KARO (Toggle ON)
-      // Naya data object banayein aur category add karein
-      const newBookmarkData = { ...query, category: category || 'general' };
-      await Bookmark.create(newBookmarkData);
-
-      return res.status(201).json({
-        success: true,
-        isBookmarked: true,
-        message: 'Added to bookmarks',
-      });
     }
+
+    await Bookmark.create({
+      userId,
+      type,
+      itemId,
+      category,
+    });
+
+    return res.status(201).json({
+      success: true,
+      isBookmarked: true,
+      message: 'Added to bookmarks',
+    });
   } catch (error) {
-    console.error('Toggle Bookmark Error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 

@@ -56,9 +56,8 @@ import {
 } from '../../controllers/admin/Video/video.controller.js';
 
 import {
-  getAllTopicsForUser,
   getTopicsByChapterForUser,
-  getSingleTopicForUser,
+  getTopicFullDetails,
   getChaptersWithTopicCountBySubSubject,
   getTopicVideosForUser,
   getCustomPracticeMCQs,
@@ -431,17 +430,17 @@ userRouter.get('/sub-subjects', getSubSubjectsBySubject);
  */
 userRouter.get(
   '/chapters/subsubject/:subSubjectId',
+  protect,
   getChaptersWithTopicCountBySubSubject
 );
 
 userRouter.get(
-  '/chapters-by-topic/:topicId',
+  '/topics/chapter/:chapterId',
   protect,
-  getChaptersByTopicForUser
+  getTopicsByChapterForUser
 );
-userRouter.get('/topics', getAllTopicsForUser);
-userRouter.get('/topics/chapter/:chapterId', getTopicsByChapterForUser);
-userRouter.get('/topics/:id', getSingleTopicForUser);
+userRouter.get('/topic-details/:topicId', getTopicFullDetails);
+
 userRouter.get('/get-chapters/:subSubjectId', getChapterBySubSubjectId);
 userRouter.get('/topic-videos/:topicId', protect, getTopicVideosForUser);
 userRouter.post('/update-progress', protect, updateVideoProgress);
