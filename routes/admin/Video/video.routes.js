@@ -1,90 +1,3 @@
-// import express from 'express';
-// const router = express.Router();
-// import { uploadVideoFile } from '../../middleware/uploadMiddleware.js'
-
-
-// import {
-//     createVideo,
-//     getAllVideos,
-//     deleteVideo
-// } from '../../controllers/Video/video.controller.js';
-
-
-
-// /**
-//  * @route   POST /api/admin/videos
-//  * @desc    Create a new video
-//  */
-// router.post('/', uploadVideoFile.single('video'), createVideo);
-
-// /**
-//  * @route   GET /api/admin/videos
-//  * @desc    Get all videos (Can filter by chapterId in query)
-//  */
-// router.get('/', getAllVideos);
-
-// /**
-//  * @route   DELETE /api/admin/videos/:id
-//  * @desc    Delete a video
-//  */
-// router.delete('/:id', deleteVideo);
-
-// export default router;
-
-// import express from 'express';
-// const router = express.Router();
-// import { uploadVideoFile } from '../../../middleware/uploadMiddleware.js'
-
-// import {
-//     createVideo,
-//     getAllVideos,
-//     deleteVideo,
-//     updateVideo // ✅ Update controller import kiya
-// } from '../../../controllers/admin/Video/video.controller.js';
-
-// /**
-//  * @route   POST /api/admin/videos
-//  * @desc    Create a new video with Thumbnail and Notes
-//  */
-// router.post(
-//     '/',
-//     uploadVideoFile.fields([
-//         { name: 'video', maxCount: 1 },
-//         { name: 'thumbnail', maxCount: 1 },
-//         { name: 'notes', maxCount: 1 }
-//     ]),
-//     createVideo
-// );
-
-// /**
-//  * @route   GET /api/admin/videos
-//  * @desc    Get all videos
-//  */
-// router.get('/', getAllVideos);
-
-// /**
-//  * @route   PUT /api/admin/videos/:id
-//  * @desc    Update video details or files
-//  */
-// router.put(
-//     '/:id',
-//     uploadVideoFile.fields([
-//         { name: 'video', maxCount: 1 },
-//         { name: 'thumbnail', maxCount: 1 },
-//         { name: 'notes', maxCount: 1 }
-//     ]),
-//     updateVideo
-// );
-
-// /**
-//  * @route   DELETE /api/admin/videos/:id
-//  * @desc    Delete a video
-//  */
-// router.delete('/:id', deleteVideo);
-
-// export default router;
-
-
 import express from 'express';
 const router = express.Router();
 import { uploadVideoFile } from '../../../middleware/uploadMiddleware.js';
@@ -92,10 +5,11 @@ import { protect } from '../../../middleware/authMiddleware.js';
 import { authorize } from '../../../middleware/Authorization.middleware.js';
 
 import {
-    createVideo,
-    getAllVideos,
-    deleteVideo,
-    updateVideo 
+  createVideo,
+  getAllVideos,
+  deleteVideo,
+  updateVideo,
+  getVideoData,
 } from '../../../controllers/admin/Video/video.controller.js';
 
 /**
@@ -158,13 +72,13 @@ router.use(authorize('admin'));
  *         description: Video lecture created successfully
  */
 router.post(
-    '/',
-    uploadVideoFile.fields([
-        { name: 'video', maxCount: 1 },
-        { name: 'thumbnail', maxCount: 1 },
-        { name: 'notes', maxCount: 1 }
-    ]),
-    createVideo
+  '/',
+  uploadVideoFile.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'notes', maxCount: 1 },
+  ]),
+  createVideo
 );
 
 /**
@@ -225,15 +139,14 @@ router.get('/', getAllVideos);
  *         description: Video updated successfully
  */
 router.put(
-    '/:id',
-    uploadVideoFile.fields([
-        { name: 'video', maxCount: 1 },
-        { name: 'thumbnail', maxCount: 1 },
-        { name: 'notes', maxCount: 1 }
-    ]),
-    updateVideo
+  '/:id',
+  uploadVideoFile.fields([
+    { name: 'video', maxCount: 1 },
+    { name: 'thumbnail', maxCount: 1 },
+    { name: 'notes', maxCount: 1 },
+  ]),
+  updateVideo
 );
-
 
 /**
  * @swagger
@@ -254,5 +167,6 @@ router.put(
  *         description: Video deleted successfully
  */
 router.delete('/:id', deleteVideo);
+router.get('/:videoId', getVideoData);
 
 export default router;
