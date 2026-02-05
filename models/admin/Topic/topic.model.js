@@ -1,8 +1,14 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 
 const topicSchema = new mongoose.Schema(
   {
     // ✅ Topic kis Chapter ka hai (Subject → SubSubject → Chapter → Topic)
+    codonId: {
+      type: String,
+      unique: true,
+      index: true,
+    },
     chapterId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Chapter',
@@ -47,5 +53,12 @@ const topicSchema = new mongoose.Schema(
 
 // 🔁 Unique: same chapter me same topic name duplicate na ho
 topicSchema.index({ chapterId: 1, name: 1 }, { unique: true });
+topicSchema.pre('save', function (next) {
+  if (!this.codonId) {
+    const random = crypto.randomBytes(3).toString('hex').toUpperCase();
+    this.codonId = `Codon-ID-${random}`;
+  }
+  next();
+});
 
 export default mongoose.model('Topic', topicSchema);
