@@ -1342,103 +1342,76 @@ export const getSubSubjectsBySubject = async (req, res) => {
   }
 };
 
-export const getTopicsWithChaptersForUser = async (req, res) => {
+export const getChaptersWithTopicCountBySubSubject = async (req, res) => {
   try {
     const { subSubjectId } = req.params;
-    const userId = req.user._id;
 
     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Invalid subSubjectId' });
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid subSubjectId',
+      });
     }
 
-    // 1. Topics fetch karein
-    const topics = await Topic.find({ subSubjectId, status: 'active' })
-      .select('name description order')
-      .sort({ order: 1 })
-      .lean();
-
-    const topicIds = topics.map((t) => t._id);
-
-    // 2. Chapters fetch karein
+    // 1️⃣ Fetch all chapters of this subSubject
     const chapters = await Chapter.find({
-      topicId: { $in: topicIds },
+      subSubjectId,
       status: 'active',
     })
-      .select('name topicId order')
-      .sort({ order: 1 })
+      .select('_id name')
       .lean();
 
-    // 3. User ke saare Bookmarks fetch karein
-    const userBookmarks = await Bookmark.find({ userId }).lean();
-    const bookmarkMap = {};
-    userBookmarks.forEach((b) => {
-      const id = b.chapterId || b.topicId || b.mcqId || b.itemId;
-      if (id) {
-        bookmarkMap[id.toString()] = b.category || 'general';
-      }
-    });
+    if (!chapters.length) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
 
-    // 4. Video Counts fetch karein (Topic-wise)
-    // Hum aggregation use kar rahe hain taaki saare topics ka count ek baar mein mil jaye
-    const videoCounts = await Video.aggregate([
+    const chapterIds = chapters.map((ch) => ch._id);
+
+    // 2️⃣ Aggregate topic count chapter-wise
+    const topicCounts = await Topic.aggregate([
       {
         $match: {
-          topicId: { $in: topicIds },
+          chapterId: { $in: chapterIds },
           status: 'active',
         },
       },
       {
         $group: {
-          _id: '$topicId',
-          totalVideos: { $sum: 1 },
+          _id: '$chapterId',
+          totalTopicsCount: { $sum: 1 },
         },
       },
     ]);
 
-    // Count map banayein fast lookup ke liye
-    const countMap = {};
-    videoCounts.forEach((vc) => {
-      countMap[vc._id.toString()] = vc.totalVideos;
+    // 3️⃣ Convert to map for fast lookup
+    const topicCountMap = {};
+    topicCounts.forEach((tc) => {
+      topicCountMap[tc._id.toString()] = tc.totalTopicsCount;
     });
 
-    // 5. Data Map karein aur counts + bookmarks add karein
-    const result = topics.map((topic) => {
-      const topicIdStr = topic._id.toString();
+    // 4️⃣ Final response format
+    const result = chapters.map((ch) => ({
+      chapterId: ch._id,
+      chapterName: ch.name,
+      totalTopicsCount: topicCountMap[ch._id.toString()] || 0,
+    }));
 
-      const topicChapters = chapters
-        .filter((ch) => ch.topicId.toString() === topicIdStr)
-        .map((ch) => {
-          const chIdStr = ch._id.toString();
-          return {
-            ...ch,
-            isBookMarked: !!bookmarkMap[chIdStr],
-            bookMarkedCategory: bookmarkMap[chIdStr] || null,
-          };
-        });
-
-      return {
-        ...topic,
-        videoCount: countMap[topicIdStr] || 0, // 👈 Topic wise total video count
-        isBookMarked: !!bookmarkMap[topicIdStr],
-        bookMarkedCategory: bookmarkMap[topicIdStr] || null,
-        chapters: topicChapters,
-      };
-    });
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: result.length,
       data: result,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
-
-
-
 
 export const getAllTopicsForUser = async (req, res) => {
   try {
@@ -1479,26 +1452,20 @@ export const getTopicsByChapterForUser = async (req, res) => {
       });
     }
 
-    const chapter = await Chapter.findById(chapterId).select('topicId');
-
-    if (!chapter || !chapter.topicId) {
-      return res.status(404).json({
-        success: false,
-        message: 'No topic found for this chapter',
-      });
-    }
-
-    const topic = await Topic.findOne({
-      _id: chapter.topicId,
+    const topics = await Topic.find({
+      chapterId: chapterId,
       status: 'active',
-    }).select('name description order');
+    })
+      .select('_id name description ')
+      .sort({ order: 1 });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: topic ? [topic] : [],
+      count: topics.length,
+      data: topics,
     });
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -2227,165 +2194,6 @@ export const getCourseListSimple = async (req, res, next) => {
   }
 };
 
-// export const getTopicVideosForUser = async (req, res) => {
-//   try {
-//     const { topicId } = req.params;
-
-//     if (!mongoose.Types.ObjectId.isValid(topicId)) {
-//       return res.status(400).json({ success: false, message: 'Invalid topicId' });
-//     }
-
-//     // 1. Topic ki Basic Details nikaalo (Sirf Name aur Description)
-//     const topic = await Topic.findById(topicId).select('name description').lean();
-
-//     if (!topic) {
-//       return res.status(404).json({ success: false, message: 'Topic not found' });
-//     }
-
-//     // 2. Is Topic se related SAARE ACTIVE VIDEOS nikaalo
-//     // Humne yahan chapterId ko bypass kar diya hai, direct topicId se filter kiya hai
-//     const videos = await Video.find({
-//       topicId: topicId,
-//       status: 'active'
-//     })
-//     .select('title thumbnailUrl videoUrl notesUrl order') // Jo fields aapne maangi hain
-//     .sort({ order: 1 })
-//     .lean();
-
-//     // 3. Response Structure (Simple List for Flutter)
-//     res.status(200).json({
-//       success: true,
-//       topicName: topic.name,
-//       totalVideos: videos.length,
-//       data: videos.map(video => ({
-//         ...video,
-//         watchStatus: "unattended" // Default status (Completed/Paused baad mein logic se aayega)
-//       }))
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-
-// export const getTopicVideosForUser = async (req, res) => {
-//   try {
-//     const { topicId } = req.params;
-
-//     if (!mongoose.Types.ObjectId.isValid(topicId)) {
-//       return res.status(400).json({ success: false, message: 'Invalid topicId format' });
-//     }
-
-//     // 1. Topic ka naam nikaalein
-//     const topic = await Topic.findById(topicId).select('name').lean();
-//     if (!topic) {
-//       return res.status(404).json({ success: false, message: 'Topic not found' });
-//     }
-
-//     // 2. Is Topic ke andar jitne ACTIVE Chapters hain wo nikaalein
-//     const chapters = await Chapter.find({ topicId, status: 'active' })
-//       .select('name order')
-//       .sort({ order: 1 })
-//       .lean();
-
-//     // 3. Is Topic ke saare ACTIVE Videos nikaalein
-//     const allVideos = await Video.find({ topicId, status: 'active' })
-//       .select('title thumbnailUrl videoUrl chapterId order')
-//       .sort({ order: 1 })
-//       .lean();
-
-//     // 4. Grouping Logic: Har Chapter ke andar uske Videos daalna
-//     const groupedData = chapters.map(chapter => {
-//       // Is chapter se match hone waale videos filter karein
-//       const chapterVideos = allVideos.filter(
-//         v => v.chapterId.toString() === chapter._id.toString()
-//       );
-
-//       return {
-//         chapterId: chapter._id,
-//         chapterName: chapter.name,
-//         videos: chapterVideos // Sirf is chapter ke videos yahan aayenge
-//       };
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       topicName: topic.name,
-//       data: groupedData
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
-// export const getTopicVideosForUser = async (req, res) => {
-//   try {
-//     const { topicId } = req.params;
-//     const { filterType } = req.query; // Query params: 'all', 'paused', 'completed', 'unattended'
-//     const userId = req.user._id;
-
-//     const topic = await Topic.findById(topicId).select('name').lean();
-//     const chapters = await Chapter.find({ topicId, status: 'active' }).sort({ order: 1 }).lean();
-
-//     // Aggregation: Videos + Student ki Progress ko merge karna
-//     let videos = await Video.aggregate([
-//       { $match: { topicId: new mongoose.Types.ObjectId(topicId), status: 'active' } },
-//       {
-//         $lookup: {
-//           from: 'videoprogresses', // Make sure collection name is correct (lowercase plural)
-//           let: { vId: '$_id' },
-//           pipeline: [
-//             { $match: { $expr: { $and: [ { $eq: ['$videoId', '$$vId'] }, { $eq: ['$userId', userId] } ] } } }
-//           ],
-//           as: 'progressInfo'
-//         }
-//       },
-//       {
-//         $lookup: {
-//           from: 'ratings',
-//           localField: '_id',
-//           foreignField: 'videoId',
-//           as: 'allRatings'
-//         }
-//       },
-//       {
-//         $addFields: {
-//           statusTag: { $ifNull: [{ $arrayElemAt: ['$progressInfo.status', 0] }, 'unattended'] },
-//           watchPercentage: { $ifNull: [{ $arrayElemAt: ['$progressInfo.percentage', 0] }, 0] }
-//         }
-//       },
-//       { $project: { progressInfo: 0 } }
-//     ]);
-
-//     // Filtering Logic
-//     if (filterType === 'completed') {
-//       videos = videos.filter(v => v.statusTag === 'completed');
-//     } else if (filterType === 'paused') {
-//       videos = videos.filter(v => v.statusTag === 'watching');
-//     } else if (filterType === 'unattended') {
-//       videos = videos.filter(v => v.statusTag === 'unattended');
-//     }
-
-//     // Grouping into Chapters
-//     const groupedData = chapters.map(chapter => {
-//       const chapterVideos = videos.filter(v => v.chapterId.toString() === chapter._id.toString());
-//       return {
-//         chapterId: chapter._id,
-//         chapterName: chapter.name,
-//         videos: chapterVideos
-//       };
-//     });
-
-//     res.status(200).json({
-//       success: true,
-//       topicName: topic?.name,
-//       data: groupedData
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
 export const getTopicVideosForUser = async (req, res) => {
   try {
     const { topicId } = req.params;
@@ -2551,78 +2359,6 @@ export const updateVideoProgress = async (req, res) => {
   }
 };
 
-/**
- * @desc    Generate Custom Test (Difficulty + Tag + Subject + Mode)
- * @route   POST /api/users/generate-custom-test
- */
-
-// export const getCustomPracticeMCQs = async (req, res, next) => {
-//   try {
-//     const { subjectId, tagId, difficulty, mode } = req.body;
-
-//     if (!subjectId) {
-//       return res
-//         .status(400)
-//         .json({ success: false, message: 'Subject ID is required' });
-//     }
-
-//     const filter = {
-//       status: 'active',
-//       subjectId: new mongoose.Types.ObjectId(subjectId),
-//     };
-
-//     if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
-//     if (difficulty) filter.difficulty = difficulty;
-//     if (mode) filter.mode = mode;
-
-//     console.log("Final Filter:", filter);
-
-//     const mcqs = await MCQ.aggregate([
-//       { $match: filter },
-//       { $sample: { size: 20 } },
-
-//       {
-//         $lookup: {
-//           from: 'tags',
-//           localField: 'tagId',
-//           foreignField: '_id',
-//           as: 'tagDetails',
-//         },
-//       },
-//       {
-//         $project: {
-//           question: 1,
-//           options: 1,
-//           correctAnswer: 1,
-//           explanation: 1,
-//           difficulty: 1,
-//           marks: 1,
-//           negativeMarks: 1,
-//           mode: 1,
-//           // Tag details ko readable format mein bhejna
-//           tag: { $arrayElemAt: ['$tagDetails', 0] },
-//         },
-//       },
-//     ]);
-//     const countCheck = await MCQ.countDocuments({
-//     subjectId: filter.subjectId,
-//     tagId: filter.tagId
-// });
-// console.log("Count for Subject + Tag:", countCheck);
-
-//     res.status(200).json({
-//       success: true,
-//       count: mcqs.length,
-//       mode: mode || 'regular',
-//       isTimerRequired: mode === 'exam',
-//       timerMinutes: 20,
-//       data: mcqs,
-//     });
-//   } catch (error) {
-//     next(error);
-//   }
-// };
-
 export const getCustomPracticeMCQs = async (req, res, next) => {
   try {
     const { subjectId, tagId, difficulty, mode } = req.body;
@@ -2744,67 +2480,6 @@ export const getAllTagsForUsers = async (req, res, next) => {
   }
 };
 
-// export const getCustomPracticeMCQs = async (req, res, next) => {
-//   try {
-//     const {
-//       subjectId,    // Subject select karna compulsory hai
-//       tagId,        // Tag (e.g., Previous Year, Important)
-//       difficulty,   // Easy, Medium, Hard
-//       mode          // regular or exam
-//     } = req.body;
-
-//     // 1. Validation: Subject zaroori hai
-//     if (!subjectId) {
-//       return res.status(400).json({
-//         success: false,
-//         message: 'Please select a Subject to start the test.'
-//       });
-//     }
-
-//     // 2. Filter Object
-//     const filter = {
-//         status: 'active',
-//         subjectId: new mongoose.Types.ObjectId(subjectId)
-//     };
-
-//     // Optional Filters (Agar user select kare toh)
-//     if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
-//     if (difficulty) filter.difficulty = difficulty;
-//     if (mode) filter.mode = mode;
-
-//     // 3. Fetch 20 Random Questions
-//     const mcqs = await MCQ.aggregate([
-//       { $match: filter },
-//       { $sample: { size: 20 } },
-//       {
-//         $project: {
-//           question: 1,
-//           options: 1,
-//           correctAnswer: 1,
-//           explanation: 1,
-//           difficulty: 1,
-//           marks: 1,
-//           negativeMarks: 1,
-//           mode: 1
-//         }
-//       }
-//     ]);
-
-//     // 4. Response with Mode Info for Flutter Timer
-//     res.status(200).json({
-//       success: true,
-//       count: mcqs.length,
-//       mode: mode || 'regular',
-//       // Flutter dev is field ko dekh kar timer on karega
-//       isTimerRequired: mode === 'exam' ? true : false,
-//       timerMinutes: mode === 'exam' ? 20 : null, // 20 questions ke liye 20 min default
-//       data: mcqs
-//     });
-
-//   } catch (error) {
-//     next(error);
-//   }
-// };
 export const getChapterFullDetails = async (req, res, next) => {
   try {
     const { chapterId } = req.params;
@@ -2857,40 +2532,6 @@ const validateBookmark = ({ type, mcqId, chapterId, subSubjectId }) => {
   return null;
 };
 
-/**
- * @route   POST /api/bookmarks
- */
-// export const addBookmark = async (req, res) => {
-//   try {
-//     const error = validateBookmark(req.body);
-//     if (error) {
-//       return res.status(400).json({ success: false, message: error });
-//     }
-
-//     const bookmark = await Bookmark.create({
-//       userId: req.user._id,
-//       type: req.body.type,
-//       mcqId: req.body.type === 'mcq' ? req.body.mcqId : null,
-//       chapterId: req.body.type === 'chapter' ? req.body.chapterId : null,
-//       subSubjectId:
-//         req.body.type === 'sub-subject' ? req.body.subSubjectId : null,
-//     });
-
-//     res.status(201).json({
-//       success: true,
-//       message: 'Bookmark added',
-//       bookmark,
-//     });
-//   } catch (error) {
-//     if (error.code === 11000) {
-//       return res
-//         .status(409)
-//         .json({ success: false, message: 'Already bookmarked' });
-//     }
-
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
 export const addBookmark = async (req, res) => {
   try {
     const { type, mcqId, chapterId, subSubjectId, topicId, category } =
