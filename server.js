@@ -30,8 +30,8 @@ import subscriptionRoutes from './routes/admin/Subscription/subscription.routes.
 import videoRoutes from './routes/admin/Video/video.routes.js';
 import Topic from './routes/admin/Topic/topic.js';
 import PaymentList from './routes/admin/paymentRoute.js';
-import faculty from "./routes/admin/faculty/faculty.routes.js"
-import promo from "./routes/admin/promo/promo.routes.js"
+import faculty from './routes/admin/faculty/faculty.routes.js';
+import promo from './routes/admin/promo/promo.routes.js';
 // Middleware Imports
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 
@@ -119,8 +119,9 @@ const swaggerDocs = swaggerJsdoc(swaggerOptions);
 
 // --- Global Middlewares ---
 app.use(cors());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '250mb' }));
+app.use(express.urlencoded({ extended: true, limit: '250mb' }));
+
 const __dirname = path.resolve();
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -147,8 +148,8 @@ app.use('/api/admin/terms', Terms);
 app.use('/api/admin/privacy', PrivacyRoutes);
 app.use('/api/admin/videos', videoRoutes);
 app.use('/api/admin', PaymentList);
-app.use('/api/faculty',faculty)
-app.use('/api/promo',promo)
+app.use('/api/faculty', faculty);
+app.use('/api/promo', promo);
 // Shared/Other Routes
 app.use('/api/location', locationRoutes);
 // app.use('/api/bookmarks', bookmarkRoutes);
