@@ -28,6 +28,7 @@ import Bookmark from '../../models/admin/bookmarkModel.js';
 import admin from 'firebase-admin';
 import Faculty from '../../models/admin/faculty/faculty.model.js';
 
+import { enforceSubscription } from '../../utils/subscriptionHelper.js';
 
 const updateUserChapterProgress = async (userId, chapterId) => {
   const user = await UserModel.findById(userId);
@@ -195,6 +196,8 @@ export const loginByGoogle = async (req, res, next) => {
         signUpBy: 'google',
         isEmailVerified: true,
         role: 'user',
+        trialExpiry: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        isTrialExpired: false,
       });
       console.log('🆕 New User Created via Google Sign-In');
     } else {
@@ -212,9 +215,12 @@ export const loginByGoogle = async (req, res, next) => {
       if (isUpdated) await user.save();
       console.log('🏠 Existing User Logged In');
     }
+    // 🔐 Subscription / Trial Check
+    if (!(await enforceSubscription(user._id, res))) return;
 
     // JWT Token generation (Backend specific)
     const { accessToken, refreshToken } = generateToken(user._id);
+
     user.refreshToken = refreshToken;
     await user.save();
 
@@ -435,6 +441,8 @@ export const register = async (req, res, next) => {
           admissionYear,
           signUpBy: 'email',
           role: 'user',
+          trialExpiry: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+          isTrialExpired: false,
         },
       ],
       { session }
@@ -663,7 +671,8 @@ export const login = async (req, res, next) => {
         message: 'Invalid credentials',
       });
     }
-
+    // 🔐 Subscription / Trial Check
+    if (!(await enforceSubscription(user._id, res))) return;
     // =========================
     // 🎟 TOKEN GENERATION
     // =========================
@@ -925,6 +934,8 @@ export const logout = async (req, res, next) => {
 
 export const getMe = async (req, res, next) => {
   try {
+    if (!(await enforceSubscription(req.user._id, res))) return;
+
     // req.user protect middleware se aata hai
     const user = await UserModel.findById(req.user._id)
       .select('-password -otp -otpExpiresAt -refreshToken')
@@ -1348,6 +1359,7 @@ export const getChaptersWithTopicCountBySubSubject = async (req, res) => {
   try {
     const { subSubjectId } = req.params;
     const userId = req.user?._id;
+    if (userId && !(await enforceSubscription(userId, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
       return res.status(400).json({
@@ -1433,6 +1445,7 @@ export const getTopicsByChapterForUser = async (req, res) => {
   try {
     const { chapterId } = req.params;
     const userId = req.user?._id;
+    if (userId && !(await enforceSubscription(userId, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(chapterId)) {
       return res.status(400).json({
@@ -1500,6 +1513,7 @@ export const getTopicsByChapterForUser = async (req, res) => {
 export const getTopicFullDetails = async (req, res) => {
   try {
     const { topicId } = req.params;
+    if (!(await enforceSubscription(req.user._id, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
       return res.status(400).json({
@@ -1712,6 +1726,7 @@ export const getChaptersByTopicForUser = async (req, res) => {
   try {
     const { topicId } = req.params;
     const userId = req.user._id;
+    if (!(await enforceSubscription(userId, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
       return res.status(400).json({
@@ -1908,6 +1923,7 @@ export const getMcqsByChapter = async (req, res) => {
   try {
     const { chapterId } = req.query;
     const userId = req.user._id;
+    if (!(await enforceSubscription(userId, res))) return;
 
     if (!chapterId) {
       return res
@@ -1939,6 +1955,7 @@ export const submitTest = async (req, res) => {
   try {
     const { chapterId, answers } = req.body;
     // answers format: [{ mcqId: "id", selectedIndex: 0 }, ...]
+    if (!(await enforceSubscription(req.user._id, res))) return;
 
     if (!chapterId || !answers) {
       return res.status(400).json({ success: false, message: 'Data missing' });
@@ -2088,6 +2105,7 @@ export const buySubscription = async (req, res, next) => {
         selectedMonths: months,
       },
       subscriptionStatus: status,
+      isTrialExpired: true,
     });
 
     // Transaction save karein
@@ -2134,6 +2152,7 @@ export const postRating = async (req, res) => {
   try {
     const { rating, review, targetType, targetId } = req.body;
     const userId = req.user._id;
+    if (!(await enforceSubscription(userId, res))) return;
 
     // 1️⃣ Required fields check
     if (rating === undefined || !targetType || !targetId) {
@@ -2246,6 +2265,7 @@ export const postRating = async (req, res) => {
 export const getAllSubSubjectsForUser = async (req, res) => {
   try {
     const { courseId } = req.query; // Course ke base par filter zaroori hai
+    if (!(await enforceSubscription(req.user._id, res))) return;
 
     if (!courseId) {
       return res
@@ -2295,6 +2315,7 @@ export const getTopicVideosForUser = async (req, res) => {
     const { topicId } = req.params;
     const { filterType } = req.query;
     const userId = req.user._id;
+    if (!(await enforceSubscription(userId, res))) return;
 
     const topic = await Topic.findById(topicId).select('name').lean();
     const chapters = await Chapter.find({ topicId, status: 'active' })
@@ -2422,6 +2443,7 @@ export const updateVideoProgress = async (req, res) => {
   try {
     const { videoId, topicId, watchTime, totalDuration } = req.body;
     const userId = req.user._id; // Auth middleware se mil raha hai
+    if (!(await enforceSubscription(userId, res))) return;
 
     // Percentage calculate karein
     const percentage = (watchTime / totalDuration) * 100;
@@ -2458,6 +2480,7 @@ export const updateVideoProgress = async (req, res) => {
 export const getCustomPracticeMCQs = async (req, res, next) => {
   try {
     const { subjectId, tagId, difficulty, mode } = req.body;
+    if (!(await enforceSubscription(req.user._id, res))) return;
 
     if (!subjectId) {
       return res
@@ -2579,6 +2602,7 @@ export const getAllTagsForUsers = async (req, res, next) => {
 export const getChapterFullDetails = async (req, res, next) => {
   try {
     const { chapterId } = req.params;
+    if (!(await enforceSubscription(req.user._id, res))) return;
 
     // 1. Chapter ki details find karein
     // 2. Videos ko populate karein (Jo is chapterId se match karti hon)
@@ -2866,6 +2890,7 @@ export const toggleBookmark = async (req, res) => {
 export const getUserDashboardStats = async (req, res) => {
   try {
     const userId = req.user._id;
+    if (!(await enforceSubscription(userId, res))) return;
 
     // User model se tracking fields nikaalein
     const user = await UserModel.findById(userId).select(
@@ -2895,14 +2920,15 @@ export const getUserDashboardStats = async (req, res) => {
   }
 };
 export const getfaculty = async (req, res) => {
-   try {
-          const list = await Faculty.find();
-          res.status(200).json(list);
-      } catch (error) {
-          res.status(500).json({ message: "Error fetching data", error: error.message });
-      }
-
-}
+  try {
+    const list = await Faculty.find();
+    res.status(200).json(list);
+  } catch (error) {
+    res
+      .status(500)
+      .json({ message: 'Error fetching data', error: error.message });
+  }
+};
 export const getAllTopicsCount = async (req, res) => {
   try {
     // 1. Database mein jitne bhi topics hain unka total count
@@ -2913,17 +2939,17 @@ export const getAllTopicsCount = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Total topics fetched successfully",
+      message: 'Total topics fetched successfully',
       data: {
-        totalTopics: totalTopics,       // Saare topics (active + inactive)
+        totalTopics: totalTopics, // Saare topics (active + inactive)
         // activeTopics: activeTopics      // Sirf active topics
-      }
+      },
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: "Error fetching topic count",
-      error: error.message
+      message: 'Error fetching topic count',
+      error: error.message,
     });
   }
 };

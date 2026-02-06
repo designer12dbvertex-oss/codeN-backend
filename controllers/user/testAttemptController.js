@@ -350,7 +350,7 @@ import mongoose from 'mongoose';
 import Test from '../../models/admin/Test/testModel.js';
 import TestAttempt from '../../models/user/testAttemptModel.js';
 import MCQ from '../../models/admin/MCQs/mcq.model.js';
-
+import { enforceSubscription } from '../../utils/subscriptionHelper.js';
 /**
  * Helper: validate ObjectId
  */
@@ -412,6 +412,7 @@ export const getAvailableTests = async (req, res) => {
   try {
     const { courseId } = req.query;
     const userId = req.user._id;
+    if (!(await enforceSubscription(userId, res))) return;
     const now = new Date();
 
     const filter = { testMode: 'exam', status: 'active' };
@@ -522,6 +523,7 @@ export const getAvailableTests = async (req, res) => {
 export const startTest = async (req, res) => {
   try {
     const userId = req.user._id;
+    if (!(await enforceSubscription(userId, res))) return;
     const { testId } = req.params;
 
     // 1️⃣ Validate testId
@@ -669,10 +671,16 @@ export const startTest = async (req, res) => {
 export const getNextQuestion = async (req, res) => {
   try {
     const { attemptId } = req.params;
+    if (!(await enforceSubscription(req.user._id, res))) return;
+
     if (!isValidId(attemptId))
       return res.status(400).json({ message: 'Invalid attempt id' });
 
-    const attempt = await TestAttempt.findById(attemptId);
+    const attempt = await TestAttempt.findOne({
+      _id: attemptId,
+      userId: req.user._id,
+    });
+
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
 
     const test = await Test.findById(attempt.testId);
@@ -742,10 +750,16 @@ export const getNextQuestion = async (req, res) => {
 export const submitAnswer = async (req, res) => {
   try {
     const { attemptId } = req.params;
+    if (!(await enforceSubscription(req.user._id, res))) return;
+
     if (!isValidId(attemptId))
       return res.status(400).json({ message: 'Invalid attempt id' });
 
-    const attempt = await TestAttempt.findById(attemptId);
+    const attempt = await TestAttempt.findOne({
+      _id: attemptId,
+      userId: req.user._id,
+    });
+
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
 
     // prevent submitting to already submitted attempt
@@ -867,10 +881,15 @@ export const submitAnswer = async (req, res) => {
 export const submitTest = async (req, res) => {
   try {
     const { attemptId } = req.params;
+    if (!(await enforceSubscription(req.user._id, res))) return;
     if (!isValidId(attemptId))
       return res.status(400).json({ message: 'Invalid attempt id' });
 
-    const attempt = await TestAttempt.findById(attemptId);
+    const attempt = await TestAttempt.findOne({
+      _id: attemptId,
+      userId: req.user._id,
+    });
+
     if (!attempt) return res.status(404).json({ message: 'Attempt not found' });
 
     if (attempt.submittedAt)
@@ -965,7 +984,10 @@ export const submitTest = async (req, res) => {
  */
 export const getTestResult = async (req, res) => {
   try {
-    const { userId, testId } = req.params;
+    const userId = req.user._id;
+    const { testId } = req.params;
+
+    if (!(await enforceSubscription(userId, res))) return;
 
     if (!isValidId(userId) || !isValidId(testId)) {
       return res.status(400).json({ message: 'Invalid id(s)' });
@@ -1050,7 +1072,10 @@ export const getTestResult = async (req, res) => {
  */
 export const getTestReview = async (req, res) => {
   try {
-    const { userId, testId } = req.params;
+    const userId = req.user._id;
+    const { testId } = req.params;
+
+    if (!(await enforceSubscription(userId, res))) return;
 
     if (!isValidId(userId) || !isValidId(testId)) {
       return res.status(400).json({ message: 'Invalid id(s)' });
@@ -1121,6 +1146,7 @@ export const getTestReview = async (req, res) => {
 export const getAttemptAnswers = async (req, res) => {
   try {
     const { attemptId } = req.params;
+    if (!(await enforceSubscription(req.user._id, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(attemptId)) {
       return res.status(400).json({
@@ -1129,7 +1155,10 @@ export const getAttemptAnswers = async (req, res) => {
       });
     }
 
-    const attempt = await TestAttempt.findById(attemptId).lean();
+    const attempt = await TestAttempt.findOne({
+      _id: attemptId,
+      userId: req.user._id,
+    }).lean();
     if (!attempt) {
       return res.status(404).json({
         success: false,
@@ -1159,6 +1188,7 @@ export const getAttemptAnswers = async (req, res) => {
 export const submitTestByChapter = async (req, res) => {
   try {
     const { chapterId, answers } = req.body;
+    if (!(await enforceSubscription(req.user._id, res))) return;
 
     // 1️⃣ Validation
     if (!chapterId || !Array.isArray(answers)) {
@@ -1234,7 +1264,7 @@ export const getQTestsByChapter = async (req, res) => {
   try {
     const { chapterId } = req.params;
     const userId = req.user._id; // 👈 important
-
+    if (!(await enforceSubscription(userId, res))) return;
     if (!chapterId) {
       return res.status(400).json({
         success: false,
@@ -1302,6 +1332,60 @@ export const getQTestsByChapter = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch Q-Tests',
+    });
+  }
+};
+
+export const getMcqsByTestId = async (req, res) => {
+  try {
+    const { testId } = req.params;
+    const userId = req.user._id;
+
+    // 🔐 subscription check
+    if (!(await enforceSubscription(userId, res))) return;
+
+    // Validate ID
+    if (!mongoose.Types.ObjectId.isValid(testId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid test id',
+      });
+    }
+
+    // Check test exists
+    const test = await Test.findOne({
+      _id: testId,
+      status: 'active',
+    }).lean();
+
+    if (!test) {
+      return res.status(404).json({
+        success: false,
+        message: 'Test not found',
+      });
+    }
+
+    // Fetch MCQs
+    const mcqs = await MCQ.find({
+      testId: test._id,
+      status: 'active',
+    })
+      .populate('tagId', 'name')
+      .sort({ createdAt: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      testId: test._id,
+      testTitle: test.testTitle,
+      totalQuestions: mcqs.length,
+      data: mcqs,
+    });
+  } catch (error) {
+    console.error('getMcqsByTestId error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch MCQs',
     });
   }
 };

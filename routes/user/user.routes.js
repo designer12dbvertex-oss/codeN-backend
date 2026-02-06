@@ -377,7 +377,7 @@ userRouter.get('/about-us', getAboutUs);
 userRouter.get('/privacy-policy', getPrivacyPolicy);
 userRouter.get('/terms-conditions', getTerms);
 userRouter.get('/alltag', getAllTagsForUsers);
-userRouter.get('/details/:chapterId', getChapterFullDetails);
+userRouter.get('/details/:chapterId', protect, getChapterFullDetails);
 
 /* ================= EDUCATIONAL CONTENT ================= */
 
@@ -441,12 +441,12 @@ userRouter.get(
   protect,
   getTopicsByChapterForUser
 );
-userRouter.get('/topic-details/:topicId', getTopicFullDetails);
+userRouter.get('/topic-details/:topicId',protect, getTopicFullDetails);
 
 userRouter.get('/get-chapters/:subSubjectId', getChapterBySubSubjectId);
 userRouter.get('/topic-videos/:topicId', protect, getTopicVideosForUser);
 userRouter.post('/update-progress', protect, updateVideoProgress);
-userRouter.post('/generate-custom-test', getCustomPracticeMCQs);
+userRouter.post('/generate-custom-test', protect, getCustomPracticeMCQs);
 userRouter.get('/daily-mcq', getDailyMCQ);
 
 /* ================= MCQ / TEST ================= */
@@ -472,7 +472,7 @@ userRouter.get('/get-mcqs', protect, getMcqsByChapter);
  *                 items:
  *                   type: object
  */
-userRouter.post('/submit-test', testLimiter, submitTest);
+userRouter.post('/submit-test', testLimiter, protect,  submitTest);
 // userRouter.post('/submit-Qtest', protect, submitTestByChapter);
 /* ================= SUBSCRIPTION ROUTES ================= */
 
