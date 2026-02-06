@@ -37,6 +37,8 @@ import {
   getBookmarkSummary,
   getBookmarksList,
   getUserDashboardStats,
+  getfaculty,
+  getAllTopicsCount
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -737,5 +739,7 @@ userRouter.get('/profile/:id', protect, getUserData);
  *         description: Unauthorized
  */
 userRouter.post('/rating', protect, postRating);
+userRouter.get('/facultylist',  getfaculty);
+userRouter.get('/count-all-topics', getAllTopicsCount);
 
 export default userRouter;

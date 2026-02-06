@@ -39,4 +39,5 @@ router.patch('/:id/status', toggleTopicStatus);
 // DELETE TOPIC (PERMANENT)
 router.delete('/:id', deleteTopicPermanently);
 
+
 export default router;
