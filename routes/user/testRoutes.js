@@ -73,6 +73,6 @@ router.post('/attempt/:attemptId/submit', protect, submitTest);
 
 router.post('/submit-Qtest', protect, submitTestByChapter);
 router.get('/qtest/:chapterId', protect, getQTestsByChapter);
-router.get('/tests/:testId/mcqs', protect, getMcqsByTestId);
+router.get('/qtest/:testId/mcqs', protect, getMcqsByTestId);
 
 export default router;
