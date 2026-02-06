@@ -34,6 +34,7 @@ import faculty from './routes/admin/faculty/faculty.routes.js';
 import promo from './routes/admin/promo/promo.routes.js';
 // Middleware Imports
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
+import { startSubscriptionCron } from './cron/subscription.cron.js';
 
 // Load Env
 dotenv.config();
@@ -194,6 +195,7 @@ const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  startSubscriptionCron();
   console.log(
     `📄 Swagger Docs: ${
       process.env.BASE_URL || `http://localhost:${PORT}`

@@ -71,20 +71,12 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
     usedPromoCodes: [
-    {
-      promoId: { type: mongoose.Schema.Types.ObjectId, ref: 'PromoCode' },
-      appliedAt: { type: Date, default: Date.now }
-    }
-  ],
-  usageLimitPerUser: { type: Number, default: 1 },
-  
-  // Current Subscription track karne ke liye (Optional but Recommended)
-  subscription: {
-    planId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionPlan' },
-    startDate: Date,
-    endDate: Date,
-    status: { type: String, enum: ['active', 'expired', 'inactive'], default: 'inactive' }
-  },
+      {
+        promoId: { type: mongoose.Schema.Types.ObjectId, ref: 'PromoCode' },
+        appliedAt: { type: Date, default: Date.now },
+      },
+    ],
+    usageLimitPerUser: { type: Number, default: 1 },
 
     password: {
       type: String,
@@ -174,13 +166,22 @@ const userSchema = new mongoose.Schema(
       enum: ['free', 'starter', 'professional', 'premium_plus'],
       default: 'free',
     },
+    // ✅ Free Trial Tracking (3 Days)
+    trialExpiry: {
+      type: Date,
+      default: null,
+    },
+
+    isTrialExpired: {
+      type: Boolean,
+      default: false,
+    },
+
     completedChapters: [
       { type: mongoose.Schema.Types.ObjectId, ref: 'Chapter' },
     ],
     completedModulesCount: { type: Number, default: 0 },
-
   },
-  
 
   { timestamps: true }
 );
