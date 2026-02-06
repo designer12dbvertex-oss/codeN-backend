@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Video from '../../../models/admin/Video/video.model.js';
+import VideoProgress from '../../../models/admin/Video/videoprogess.js';
 import Subject from '../../../models/admin/Subject/subject.model.js';
 import SubSubject from '../../../models/admin/Sub-subject/subSubject.model.js';
 import Chapter from '../../../models/admin/Chapter/chapter.model.js';
@@ -231,6 +232,8 @@ export const getAllVideos = async (req, res, next) => {
 export const getChapterVideoByChapterId = async (req, res, next) => {
   try {
     const { chapterId } = req.params;
+    const userId = req.user?._id;
+
     const { status } = req.query;
 
     // ✅ Validate chapterId
@@ -256,11 +259,60 @@ export const getChapterVideoByChapterId = async (req, res, next) => {
       .populate('topicId', 'name')
 
       .sort({ order: 1 });
+    // 🔥 User progress fetch
+    let progressMap = {};
+
+    if (userId && videos.length > 0) {
+      const progresses = await VideoProgress.find({
+        userId,
+        videoId: { $in: videos.map((v) => v._id) },
+      }).lean();
+
+      progresses.forEach((p) => {
+        progressMap[p.videoId.toString()] = p;
+      });
+    }
+
+    // 🔥 Merge progress into videos
+    const formattedVideos = videos.map((video) => {
+      const progress = progressMap[video._id.toString()];
+
+      let videoStatus = 'UNATTENDED';
+
+      let pausedAt = null;
+      let watchPercentage = 0;
+      let watchTime = 0;
+      let totalDuration = 0;
+
+      if (progress) {
+        if (progress.status === 'completed') {
+          videoStatus = 'COMPLETED';
+        } else if (progress.status === 'watching') {
+          videoStatus = 'PAUSED';
+          pausedAt = progress.updatedAt; // 👈 pause timestamp
+        }
+
+        watchPercentage = progress.percentage || 0;
+        watchTime = progress.watchTime || 0;
+        totalDuration = progress.totalDuration || 0;
+      }
+
+      return {
+        ...video.toObject(),
+        userProgress: {
+          status: videoStatus,
+          pausedAt,
+          watchPercentage,
+          watchTime,
+          totalDuration,
+        },
+      };
+    });
 
     res.status(200).json({
       success: true,
       count: videos.length,
-      data: videos,
+      data: formattedVideos,
     });
   } catch (error) {
     next(error);

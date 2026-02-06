@@ -251,9 +251,13 @@ export const getAllMCQs = async (req, res, next) => {
         filter.testId = testId; // Specific test MCQs ONLY
       }
     } else if (testMode === 'exam') {
+      // Only exam MCQs that are attached to a test
       filter.testMode = 'exam';
+      filter.testId = { $ne: null };
     } else if (testMode === 'regular') {
+      // Only regular MCQs that are attached to a test
       filter.testMode = 'regular';
+      filter.testId = { $ne: null };
     }
 
     // Case 5: No explicit filter means return all MCQs (will be grouped by test)

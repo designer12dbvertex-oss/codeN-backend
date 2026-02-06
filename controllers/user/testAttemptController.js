@@ -1226,7 +1226,6 @@ export const submitTestByChapter = async (req, res) => {
   }
 };
 
-
 /**
  * @desc   Get Q-Tests by Chapter (User Side)
  * @route  GET /api/user/tests/qtest/:chapterId
@@ -1234,6 +1233,7 @@ export const submitTestByChapter = async (req, res) => {
 export const getQTestsByChapter = async (req, res) => {
   try {
     const { chapterId } = req.params;
+    const userId = req.user._id; // 👈 important
 
     if (!chapterId) {
       return res.status(400).json({
@@ -1242,15 +1242,15 @@ export const getQTestsByChapter = async (req, res) => {
       });
     }
 
-    // 1️⃣ Find all MCQs of this chapter that belong to regular mode
-    const mcqs = await MCQ.find({
-      chapterId,
-      testId: { $ne: null },
+    // 1️⃣ Get all regular active tests
+    const tests = await Test.find({
       testMode: 'regular',
       status: 'active',
-    }).select('testId');
+    })
+      .select('_id testTitle month academicYear mcqLimit')
+      .lean();
 
-    if (!mcqs.length) {
+    if (!tests.length) {
       return res.status(200).json({
         success: true,
         count: 0,
@@ -1258,33 +1258,39 @@ export const getQTestsByChapter = async (req, res) => {
       });
     }
 
-    // 2️⃣ Extract unique testIds
-    const testIds = [...new Set(mcqs.map((m) => m.testId.toString()))];
+    const finalData = [];
 
-    // 3️⃣ Fetch tests
-    const tests = await Test.find({
-      _id: { $in: testIds },
-      status: 'active',
-      testMode: 'regular',
-    })
-      .select('testTitle month academicYear mcqLimit')
-      .lean();
+    for (const test of tests) {
+      // 2️⃣ Check MCQ count for this chapter
+      const count = await MCQ.countDocuments({
+        testId: test._id,
+        chapterId,
+        testMode: 'regular',
+        status: 'active',
+      });
 
-    // 4️⃣ Add MCQ count per test (chapter specific)
-    const finalData = await Promise.all(
-      tests.map(async (test) => {
-        const count = await MCQ.countDocuments({
+      if (count > 0) {
+        // 3️⃣ Find user's attempt for this test + chapter
+        const attempt = await TestAttempt.findOne({
+          userId,
           testId: test._id,
           chapterId,
-          status: 'active',
-        });
+          mode: 'regular',
+        }).lean();
 
-        return {
+        let status = 'NOT_STARTED';
+
+        if (attempt) {
+          status = attempt.submittedAt ? 'COMPLETED' : 'IN_PROGRESS';
+        }
+
+        finalData.push({
           ...test,
           totalQuestions: count,
-        };
-      })
-    );
+          status, // 👈 NEW FIELD
+        });
+      }
+    }
 
     return res.status(200).json({
       success: true,
