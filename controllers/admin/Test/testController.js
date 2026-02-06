@@ -22,6 +22,9 @@ export const createTest = async (req, res) => {
       testTitle,
       courseId,
       testMode,
+      subjectId,
+      subSubjectId,
+      chapterId,
       mcqLimit,
       timeLimit,
       description,
@@ -48,6 +51,15 @@ export const createTest = async (req, res) => {
         message: 'Time limit is required for Exam Mode',
       });
     }
+    if (testMode === 'regular') {
+      if (!subjectId || !subSubjectId || !chapterId) {
+        return res.status(400).json({
+          success: false,
+          message:
+            'Subject, SubSubject and Chapter are required for Regular mode',
+        });
+      }
+    }
 
     // ===== CREATE TEST (NO MCQs) =====
     const test = await Test.create({
@@ -56,6 +68,9 @@ export const createTest = async (req, res) => {
       testTitle,
       courseId,
       testMode,
+      subjectId: testMode === 'regular' ? subjectId : null,
+      subSubjectId: testMode === 'regular' ? subSubjectId : null,
+      chapterId: testMode === 'regular' ? chapterId : null,
       mcqLimit,
       timeLimit: testMode === 'exam' ? timeLimit : null,
       description: description || '',
@@ -99,36 +114,23 @@ export const getCourseFilters = async (req, res) => {
 
     const subSubjectIds = subSubjects.map((s) => s._id);
 
-    // 3️⃣ Topics (sub-subjects se linked)
-    const topics = await Topic.find({
+    // 3️⃣ Chapters (sub-subjects se linked)
+    const chapters = await Chapter.find({
       subSubjectId: { $in: subSubjectIds },
     })
       .select('_id name subSubjectId')
       .lean();
 
-    const topicIds = topics.map((t) => t._id);
-
-    // 4️⃣ Chapters (topics se linked)
-    const chapters = await Chapter.find({
-      topicId: { $in: topicIds },
-    })
-      .select('_id name topicId')
-      .lean();
-
     // 🔥 normalize IDs to string (frontend filtering ke liye)
+
     const fixedSubSubjects = subSubjects.map((s) => ({
       ...s,
       subjectId: String(s.subjectId),
     }));
 
-    const fixedTopics = topics.map((t) => ({
-      ...t,
-      subSubjectId: String(t.subSubjectId),
-    }));
-
     const fixedChapters = chapters.map((c) => ({
       ...c,
-      topicId: String(c.topicId),
+      subSubjectId: String(c.subSubjectId),
     }));
 
     return res.status(200).json({
@@ -136,7 +138,6 @@ export const getCourseFilters = async (req, res) => {
       data: {
         subjects,
         subSubjects: fixedSubSubjects,
-        topics: fixedTopics,
         chapters: fixedChapters,
       },
     });
@@ -361,6 +362,9 @@ export const updateTest = async (req, res) => {
       month,
       academicYear,
       testMode,
+      subjectId,
+      subSubjectId,
+      chapterId,
       mcqLimit,
       timeLimit,
       description,
@@ -396,6 +400,9 @@ export const updateTest = async (req, res) => {
         month, // 🔥 important
         academicYear, // 🔥 important
         testMode,
+        subjectId: testMode === 'regular' ? subjectId : null,
+        subSubjectId: testMode === 'regular' ? subSubjectId : null,
+        chapterId: testMode === 'regular' ? chapterId : null,
         mcqLimit,
         timeLimit: testMode === 'exam' ? timeLimit : null,
         description: description || '',

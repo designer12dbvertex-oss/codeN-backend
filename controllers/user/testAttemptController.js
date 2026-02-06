@@ -1225,3 +1225,77 @@ export const submitTestByChapter = async (req, res) => {
     });
   }
 };
+
+
+/**
+ * @desc   Get Q-Tests by Chapter (User Side)
+ * @route  GET /api/user/tests/qtest/:chapterId
+ */
+export const getQTestsByChapter = async (req, res) => {
+  try {
+    const { chapterId } = req.params;
+
+    if (!chapterId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Chapter ID is required',
+      });
+    }
+
+    // 1️⃣ Find all MCQs of this chapter that belong to regular mode
+    const mcqs = await MCQ.find({
+      chapterId,
+      testId: { $ne: null },
+      testMode: 'regular',
+      status: 'active',
+    }).select('testId');
+
+    if (!mcqs.length) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: [],
+      });
+    }
+
+    // 2️⃣ Extract unique testIds
+    const testIds = [...new Set(mcqs.map((m) => m.testId.toString()))];
+
+    // 3️⃣ Fetch tests
+    const tests = await Test.find({
+      _id: { $in: testIds },
+      status: 'active',
+      testMode: 'regular',
+    })
+      .select('testTitle month academicYear mcqLimit')
+      .lean();
+
+    // 4️⃣ Add MCQ count per test (chapter specific)
+    const finalData = await Promise.all(
+      tests.map(async (test) => {
+        const count = await MCQ.countDocuments({
+          testId: test._id,
+          chapterId,
+          status: 'active',
+        });
+
+        return {
+          ...test,
+          totalQuestions: count,
+        };
+      })
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: finalData.length,
+      data: finalData,
+    });
+  } catch (error) {
+    console.error('Get QTests By Chapter Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch Q-Tests',
+    });
+  }
+};

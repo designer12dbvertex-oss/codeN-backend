@@ -12,6 +12,23 @@ const testSchema = new mongoose.Schema(
       ref: 'Course',
       required: true,
     },
+    subjectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Subject',
+      default: null,
+    },
+
+    subSubjectId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'SubSubject',
+      default: null,
+    },
+
+    chapterId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Chapter',
+      default: null,
+    },
 
     testMode: {
       type: String,
