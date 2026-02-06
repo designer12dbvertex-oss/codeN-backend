@@ -41,7 +41,7 @@ export const createMCQ = async (req, res, next) => {
 
     let testExists = null;
 
-    if (testId) {
+    if (testId && testId !== 'null') {
       if (!mongoose.Types.ObjectId.isValid(testId)) {
         return res.status(400).json({
           success: false,
@@ -49,7 +49,10 @@ export const createMCQ = async (req, res, next) => {
         });
       }
 
-      testExists = await Test.findById(testId).select('_id mcqLimit').lean();
+      testExists = await Test.findById(testId)
+        .select('_id mcqLimit testMode')
+        .lean();
+
       if (!testExists) {
         return res.status(404).json({
           success: false,
@@ -168,6 +171,7 @@ export const createMCQ = async (req, res, next) => {
     // Create MCQ (testId validated above)
     const mcq = await MCQ.create({
       testId: testId || null,
+      testMode: testExists?.testMode || null,
       courseId: subject.courseId,
       subjectId: subject._id,
       subSubjectId: subSubject._id,
@@ -214,6 +218,7 @@ export const getAllMCQs = async (req, res, next) => {
   try {
     const {
       testId,
+      testMode,
       courseId,
       subjectId,
       subSubjectId,
@@ -225,7 +230,34 @@ export const getAllMCQs = async (req, res, next) => {
     } = req.query;
 
     const filter = {};
-    if (testId) filter.testId = testId;
+
+    /**
+     * STRICT FILTERING LOGIC
+     *
+     * Case 1: testId === 'null' → Only manual MCQs (testId is null)
+     * Case 2: testId provided → Only that specific test's MCQs
+     * Case 3: testMode === 'regular' → Only Q-Test MCQs (testId exists AND testMode = 'regular')
+     * Case 4: testMode === 'exam' → Only Test MCQs (testId exists AND testMode = 'exam')
+     * Case 5: No filter → All MCQs grouped by test
+     *
+     * ⚠️ CRITICAL: Manual, regular, and exam MCQs must NEVER mix
+     */
+
+    if (typeof testId !== 'undefined') {
+      // Case 1: Explicit testId filter (including 'null')
+      if (testId === 'null') {
+        filter.testId = null; // Manual MCQs ONLY
+      } else if (testId) {
+        filter.testId = testId; // Specific test MCQs ONLY
+      }
+    } else if (testMode === 'exam') {
+      filter.testMode = 'exam';
+    } else if (testMode === 'regular') {
+      filter.testMode = 'regular';
+    }
+
+    // Case 5: No explicit filter means return all MCQs (will be grouped by test)
+
     if (courseId) filter.courseId = courseId;
     if (subjectId) filter.subjectId = subjectId;
     if (subSubjectId) filter.subSubjectId = subSubjectId;
@@ -242,18 +274,37 @@ export const getAllMCQs = async (req, res, next) => {
       .populate('chapterId', 'name')
       .populate('topicId', 'name')
       .populate('tagId', 'name')
-      .populate('testId', 'testTitle')
+      .populate('testId', 'testTitle testMode')
+
       .sort({ createdAt: -1 });
 
-    const buildGroup = (tid, tName, list) => ({
+    const buildGroup = (tid, tName, tMode, list) => ({
       testId: tid,
       testName: tName || 'Unknown Test',
+      testMode: tMode || null, // ✅ ADD THIS
       totalMCQs: list.length,
       mcqList: list,
     });
+    // 🔥 SPECIAL CASE: Manual MCQs
+    if (testId === 'null') {
+      return res.status(200).json({
+        success: true,
+        count: mcqs.length,
+        format: 'test-wise-grouped',
+        data: [
+          {
+            testId: null,
+            testName: 'Manual MCQs',
+            testMode: null,
+            totalMCQs: mcqs.length,
+            mcqList: mcqs,
+          },
+        ],
+      });
+    }
 
     // —— testId provided: single-test view ——
-    if (testId) {
+    if (testId && testId !== 'null') {
       if (mcqs.length > 0) {
         const ref = mcqs[0].testId;
         const name = ref?.testTitle || ref?.name || 'Unknown Test';
@@ -261,7 +312,9 @@ export const getAllMCQs = async (req, res, next) => {
           success: true,
           count: mcqs.length,
           format: 'test-wise-grouped',
-          data: [buildGroup(testId, name, mcqs)],
+          data: [
+            buildGroup(testId, name, mcqs[0]?.testId?.testMode || null, mcqs),
+          ],
         });
       }
 
@@ -279,29 +332,41 @@ export const getAllMCQs = async (req, res, next) => {
         success: true,
         count: 0,
         format: 'test-wise-grouped',
-        data: [buildGroup(testId, test.testTitle || 'Unknown Test', [])],
+        data: [
+          buildGroup(
+            testId,
+            test.testTitle || 'Unknown Test',
+            test.testMode || null,
+            []
+          ),
+        ],
       });
     }
 
     // —— no testId: all MCQs grouped by test ——
+
     const grouped = {};
 
+    // Group MCQs by their test. Manual MCQs (testId === null) will be
+    // placed under the 'manual' key so they appear as a separate group.
     for (const mcq of mcqs) {
       const t = mcq.testId;
-      const key = t?._id?.toString() ?? 'unassigned';
+      const key = t?._id?.toString() ?? 'manual';
       const name =
         t?.testTitle ||
         t?.name ||
-        (key === 'unassigned' ? 'Unassigned' : 'Unknown Test');
+        (key === 'manual' ? 'Manual MCQs' : 'Unknown Test');
 
       if (!grouped[key]) {
         grouped[key] = {
           testId: t?._id ?? null,
           testName: name,
+          testMode: t?.testMode || null,
           totalMCQs: 0,
           mcqList: [],
         };
       }
+
       grouped[key].mcqList.push(mcq);
       grouped[key].totalMCQs += 1;
     }
@@ -438,16 +503,21 @@ export const updateMCQ = async (req, res, next) => {
           });
         }
 
-        const t = await Test.findById(newTestId).select('_id').lean();
+        const t = await Test.findById(newTestId).select('_id testMode').lean();
+
         if (!t) {
           return res.status(404).json({
             success: false,
             message: 'Test not found',
           });
         }
-      }
 
-      mcq.testId = newTestId;
+        mcq.testId = newTestId;
+        mcq.testMode = t.testMode; // 🔥 ADD THIS
+      } else {
+        mcq.testId = null;
+        mcq.testMode = null; // 🔥 ADD THIS
+      }
     }
 
     /* QUESTION UPDATE */
