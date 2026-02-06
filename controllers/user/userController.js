@@ -26,7 +26,7 @@ import Tag from '../../models/admin/Tags/tag.model.js';
 import TestAttempt from '../../models/user/testAttemptModel.js';
 import Bookmark from '../../models/admin/bookmarkModel.js';
 import admin from 'firebase-admin';
-import Faculty from '../../../models/admin/faculty/faculty.model.js';
+import Faculty from '../../models/admin/faculty/faculty.model.js';
 
 
 const updateUserChapterProgress = async (userId, chapterId) => {
