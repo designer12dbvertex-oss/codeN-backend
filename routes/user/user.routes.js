@@ -34,7 +34,8 @@
     removeBookmark,
     getMyBookmarks,
     toggleBookmark,
-    getBookmarkSummary, getBookmarksList,getUserDashboardStats 
+    getBookmarkSummary, getBookmarksList,getUserDashboardStats ,
+    getfaculty
   } from '../../controllers/user/userController.js';
 
   import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -721,5 +722,6 @@
    *         description: Unauthorized
    */
   userRouter.post('/rating', protect, postRating);
+  userRouter.get('/facultylist', getfaculty ,);
 
   export default userRouter;

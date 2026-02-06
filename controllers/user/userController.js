@@ -26,6 +26,8 @@ import Tag from '../../models/admin/Tags/tag.model.js';
 import TestAttempt from '../../models/user/testAttemptModel.js';
 import Bookmark from '../../models/admin/bookmarkModel.js';
 import admin from 'firebase-admin';
+import Faculty from '../../../models/admin/faculty/faculty.model.js';
+
 
 const updateUserChapterProgress = async (userId, chapterId) => {
   const user = await UserModel.findById(userId);
@@ -3225,3 +3227,12 @@ export const getUserDashboardStats = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+export const getfaculty = async (req, res) => {
+   try {
+          const list = await Faculty.find();
+          res.status(200).json(list);
+      } catch (error) {
+          res.status(500).json({ message: "Error fetching data", error: error.message });
+      }
+
+}
