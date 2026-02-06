@@ -4,74 +4,80 @@ import PromoCode from '../../../models/admin/promo/promo.model.js';
 import SubscriptionPlan from '../../../models/admin/SubscriptionPlan/scriptionplan.model.js'
 import { protect } from '../../../middleware/authMiddleware.js';
 import { authorize } from '../../../middleware/Authorization.middleware.js';
+import {
+  
+ applyPromoCode ,
+} from "../../../controllers/admin/Subscription/subscription.controller.js";
 
 const router = express.Router();
 
-router.post('/apply', async (req, res) => {
-  try {
-    const { promoCode, planId, months, userId } = req.body; 
+router.post("/apply",applyPromoCode );
 
-    // Purani line ko comment hi rehne dein
-    // const userId = req.user._id; 
+// router.post('/apply', async (req, res) => {
+//   try {
+//     const { promoCode, planId, months, userId } = req.body; 
 
-    // 2. Promo code fetch logic (same rahega)
-    const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
-    if (!promo) return res.status(400).json({ message: "Invalid or Expired Promo Code" });
+//     // Purani line ko comment hi rehne dein
+//     // const userId = req.user._id; 
 
-    // 3. User check (Ab ye body wali ID use karega)
-    const user = await UserModel.findById(userId); 
-    if (!user) {
-      return res.status(404).json({ message: "User record not found. Please provide a valid 'userId' in JSON body from your database." });
-    }
+//     // 2. Promo code fetch logic (same rahega)
+//     const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
+//     if (!promo) return res.status(400).json({ message: "Invalid or Expired Promo Code" });
 
-    // 4. Promo use check (Promo milne ke BAAD hi access karein)
-    // Ab 'promo._id' safe hai kyunki upar check laga diya hai
-    const alreadyUsed = user.usedPromoCodes.find(
-      (p) => p.promoId && p.promoId.toString() === promo._id.toString()
-    );
+//     // 3. User check (Ab ye body wali ID use karega)
+//     const user = await UserModel.findById(userId); 
+//     if (!user) {
+//       return res.status(404).json({ message: "User record not found. Please provide a valid 'userId' in JSON body from your database." });
+//     }
 
-    if (alreadyUsed) {
-      return res.status(400).json({ message: "You have already used this promo code" });
-    }
+//     // 4. Promo use check (Promo milne ke BAAD hi access karein)
+//     // Ab 'promo._id' safe hai kyunki upar check laga diya hai
+//     const alreadyUsed = user.usedPromoCodes.find(
+//       (p) => p.promoId && p.promoId.toString() === promo._id.toString()
+//     );
 
-    // ... baaki ka calculation logic same rahega ...
+//     if (alreadyUsed) {
+//       return res.status(400).json({ message: "You have already used this promo code" });
+//     }
+
+//     // ... baaki ka calculation logic same rahega ...
     
-    // 5. Plan check
-    const plan = await SubscriptionPlan.findById(planId);
-    if (!plan) return res.status(404).json({ message: "Plan not found" });
+//     // 5. Plan check
+//     const plan = await SubscriptionPlan.findById(planId);
+//     if (!plan) return res.status(404).json({ message: "Plan not found" });
 
-    const pricingOption = plan.pricing.find((p) => p.months === months);
-    if (!pricingOption) return res.status(400).json({ message: "Invalid duration" });
+//     const pricingOption = plan.pricing.find((p) => p.months === months);
+//     if (!pricingOption) return res.status(400).json({ message: "Invalid duration" });
 
-    // Discount Calculation Logic...
-    let discountAmount = 0;
-    const originalPrice = pricingOption.price;
+//     // Discount Calculation Logic...
+//     let discountAmount = 0;
+//     const originalPrice = pricingOption.price;
 
-    if (promo.discountType === 'percentage') {
-      discountAmount = (originalPrice * promo.discountValue) / 100;
-      if (promo.maxDiscount > 0 && discountAmount > promo.maxDiscount) {
-        discountAmount = promo.maxDiscount;
-      }
-    } else {
-      discountAmount = promo.discountValue;
-    }
+//     if (promo.discountType === 'percentage') {
+//       discountAmount = (originalPrice * promo.discountValue) / 100;
+//       if (promo.maxDiscount > 0 && discountAmount > promo.maxDiscount) {
+//         discountAmount = promo.maxDiscount;
+//       }
+//     } else {
+//       discountAmount = promo.discountValue;
+//     }
 
-    const finalPrice = Math.max(0, originalPrice - discountAmount);
+//     const finalPrice = Math.max(0, originalPrice - discountAmount);
 
-    return res.status(200).json({
-      success: true,
-      message: "Promo Code Applied!",
-      originalPrice,
-      discountAmount,
-      finalPrice,
-      promoCode: promo.code
-    });
+//     return res.status(200).json({
+//       success: true,
+//       message: "Promo Code Applied!",
+//       originalPrice,
+//       discountAmount,
+//       finalPrice,
+//       promoCode: promo.code
+//     });
 
-  } catch (error) {
-    console.error("Promo Error:", error);
-    res.status(500).json({ message: "Server Error", error: error.message });
-  }
-});
+//   } catch (error) {
+//     console.error("Promo Error:", error);
+//     res.status(500).json({ message: "Server Error", error: error.message });
+//   }
+// });
 // POST: Admin naya promo code banayega
 router.post('/add', async (req, res) => {
   try {
