@@ -1,17 +1,18 @@
-import mongoose from "mongoose";
+import mongoose from 'mongoose';
 
 const customTestAttemptSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: 'User',
       required: true,
+      unique: true,
     },
 
     mcqIds: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "MCQ",
+        ref: 'MCQ',
       },
     ],
 
@@ -24,14 +25,14 @@ const customTestAttemptSchema = new mongoose.Schema(
 
     mode: {
       type: String,
-      enum: ["regular", "exam"],
-      default: "regular",
+      enum: ['regular', 'exam'],
+      default: 'regular',
     },
 
     status: {
       type: String,
-      enum: ["in_progress", "completed", "auto_submitted"],
-      default: "in_progress",
+      enum: ['in_progress', 'completed', 'auto_submitted'],
+      default: 'in_progress',
     },
 
     startedAt: Date,
@@ -48,7 +49,4 @@ const customTestAttemptSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.model(
-  "CustomTestAttempt",
-  customTestAttemptSchema
-);
+export default mongoose.model('CustomTestAttempt', customTestAttemptSchema);

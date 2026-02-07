@@ -39,7 +39,7 @@ import {
   getUserDashboardStats,
   getfaculty,
   getAllTopicsCount,
-  applyPromoCode
+  applyPromoCode,
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -67,6 +67,7 @@ import {
   resumeCustomTest,
   saveCustomAnswer,
   submitCustomTest,
+  restartCustomTest,
   getCustomTestHistory,
 } from '../../controllers/user/userController.js';
 
@@ -491,6 +492,7 @@ userRouter.post('/save-custom-answer', protect, saveCustomAnswer);
 userRouter.post('/submit-custom-test', protect, submitCustomTest);
 
 userRouter.get('/custom-test-history', protect, getCustomTestHistory);
+userRouter.post('/restart-custom-test', protect, restartCustomTest);
 
 userRouter.get('/get-plans', getActivePlans);
 
@@ -656,9 +658,9 @@ userRouter.get('/get-bookmark-summary', protect, getBookmarkSummary);
 userRouter.get('/get-bookmarks-list', protect, getBookmarksList);
 
 userRouter.post('/buy-plan', protect, buySubscription);
-userRouter.get('/about-us', getAboutUs);
-userRouter.get('/privacy-policy', getPrivacyPolicy);
-userRouter.get('/terms-conditions', getTerms);
+// userRouter.get('/about-us', getAboutUs);
+// userRouter.get('/privacy-policy', getPrivacyPolicy);
+// userRouter.get('/terms-conditions', getTerms);
 userRouter.get('/course-list', getCourseListSimple);
 /**
  * @swagger
@@ -766,6 +768,6 @@ userRouter.get('/profile/:id', protect, getUserData);
 userRouter.post('/rating', protect, postRating);
 userRouter.get('/facultylist', getfaculty);
 userRouter.get('/count-all-topics', getAllTopicsCount);
-userRouter.post("/promo-apply",applyPromoCode );
+userRouter.post('/promo-apply', applyPromoCode);
 
 export default userRouter;
