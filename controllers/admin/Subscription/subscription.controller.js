@@ -3,6 +3,7 @@ import User from "../../../models/user/userModel.js";
 import SubscriptionTransaction from "../../../models/admin/SubscriptionTransaction.js";
 
 
+
 export const createSubscriptionPlan = async (req, res) => {
   try {
     const { name, features, pricing, isActive } = req.body;
@@ -197,3 +198,4 @@ export const getMySubscription = async (req, res) => {
     res.status(500).json({ status: false, message: error.message });
   }
 };
+
