@@ -576,7 +576,9 @@ userRouter.get('/my-subscription', protect, getMySubscription);
  *       401:
  *         description: Unauthorized
  */
-userRouter.post('/', protect, addBookmark);
+
+// 1️⃣ Add bookmark
+userRouter.post('/add-bookmark', protect, addBookmark);
 
 /**
  * @swagger
@@ -597,7 +599,8 @@ userRouter.post('/', protect, addBookmark);
  *       200:
  *         description: Bookmark removed successfully
  */
-userRouter.delete('/', removeBookmark);
+// 2️⃣ Remove bookmark
+userRouter.delete('/remove-bookmark', protect, removeBookmark);
 
 /**
  * @swagger
@@ -611,7 +614,9 @@ userRouter.delete('/', removeBookmark);
  *       200:
  *         description: List of bookmarks fetched successfully
  */
-userRouter.get('/', getMyBookmarks);
+
+// 3️⃣ Get all bookmarks of logged in user
+userRouter.get('/get-my-bookmarks', protect, getMyBookmarks);
 
 /**
  * @swagger
@@ -640,16 +645,20 @@ userRouter.get('/', getMyBookmarks);
  *       200:
  *         description: Bookmark toggled successfully
  */
-// router.post('/toggle', toggleBookmark);
-userRouter.post('/toggle', protect, toggleBookmark);
-userRouter.get('/summary', protect, getBookmarkSummary);
-userRouter.get('/list', protect, getBookmarksList);
+
+// 6️⃣ Toggle bookmark
+userRouter.post('/toggle-bookmark', protect, toggleBookmark);
+// 4️⃣ Get bookmark summary (folder count)
+userRouter.get('/get-bookmark-summary', protect, getBookmarkSummary);
+
+// 5️⃣ Get bookmark list (filter wise)
+userRouter.get('/get-bookmarks-list', protect, getBookmarksList);
 
 userRouter.post('/buy-plan', protect, buySubscription);
 userRouter.get('/about-us', getAboutUs);
 userRouter.get('/privacy-policy', getPrivacyPolicy);
 userRouter.get('/terms-conditions', getTerms);
-userRouter.get('/list', getCourseListSimple);
+userRouter.get('/course-list', getCourseListSimple);
 /**
  * @swagger
  * /api/users/{id}:

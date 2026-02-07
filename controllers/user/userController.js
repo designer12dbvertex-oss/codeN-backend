@@ -2955,19 +2955,57 @@ export const removeBookmark = async (req, res) => {
  */
 export const getMyBookmarks = async (req, res) => {
   try {
-    const bookmarks = await Bookmark.find({ userId: req.user._id })
-      .populate('mcqId')
-      .populate('chapterId')
-      .populate('subSubjectId')
-      .sort({ createdAt: -1 });
+    const bookmarks = await Bookmark.find({
+      userId: req.user._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    res.json({
+    const populatedBookmarks = await Promise.all(
+      bookmarks.map(async (bookmark) => {
+        let itemData = null;
+
+        if (bookmark.type === 'mcq') {
+          itemData = await MCQ.findById(bookmark.itemId)
+            .select('question options difficulty')
+            .lean();
+        }
+
+        if (bookmark.type === 'chapter') {
+          itemData = await Chapter.findById(bookmark.itemId)
+            .select('name description image')
+            .lean();
+        }
+
+        if (bookmark.type === 'topic') {
+          itemData = await Topic.findById(bookmark.itemId)
+            .select('name description')
+            .lean();
+        }
+
+        if (bookmark.type === 'sub-subject') {
+          itemData = await SubSubject.findById(bookmark.itemId)
+            .select('name image')
+            .lean();
+        }
+
+        return {
+          ...bookmark,
+          itemData,
+        };
+      })
+    );
+
+    res.status(200).json({
       success: true,
-      count: bookmarks.length,
-      bookmarks,
+      count: populatedBookmarks.length,
+      data: populatedBookmarks,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
   }
 };
 
