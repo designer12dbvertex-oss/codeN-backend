@@ -31,8 +31,6 @@ import CustomTestAttempt from '../../models/user/customTestAttempt.model.js';
 import { enforceSubscription } from '../../utils/subscriptionHelper.js';
 import PromoCode from '../../models/admin/promo/promo.model.js';
 
-
-
 const updateUserChapterProgress = async (userId, chapterId) => {
   const user = await UserModel.findById(userId);
 
@@ -631,10 +629,15 @@ export const login = async (req, res, next) => {
         });
       }
 
-      // 🔥 AUTO VERIFY IF FALSE
-      if (user.isEmailVerified !== true) {
-        user.isEmailVerified = true;
-        await user.save();
+      // // 🔥 AUTO VERIFY IF FALSE
+      // if (user.isEmailVerified !== true) {
+      //   user.isEmailVerified = true;
+      //   await user.save();
+      // }
+      if (!user.isEmailVerified) {
+        return res.status(403).json({
+          message: 'Please verify your email first',
+        });
       }
     }
 
@@ -2496,26 +2499,29 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
 
     const testMode = mode?.toLowerCase() === 'exam' ? 'exam' : 'regular';
 
-    // ✅ STEP 1: Agar regular mode hai to existing in_progress attempt check karo
-    if (testMode === 'regular') {
-      const existingAttempt = await CustomTestAttempt.findOne({
-        userId,
-        mode: 'regular',
-        status: 'in_progress',
-      }).populate('mcqIds');
+    // 🔥 STEP 1: Check ANY existing attempt
+    let existingAttempt = await CustomTestAttempt.findOne({ userId }).populate(
+      'mcqIds'
+    );
+    const { discard } = req.body;
 
-      if (existingAttempt) {
-        return res.status(200).json({
-          success: true,
-          message: 'Resuming previous test',
-          attemptId: existingAttempt._id,
-          isResume: true,
-          requestedMode: 'regular',
-          isTimerRequired: false,
-          timerMinutes: 0,
-          data: existingAttempt.mcqIds,
-        });
-      }
+    // 🔥 If user wants to discard old test
+    if (existingAttempt && discard === true) {
+      await CustomTestAttempt.deleteOne({ _id: existingAttempt._id });
+      existingAttempt = null;
+    }
+
+    if (existingAttempt) {
+      return res.status(200).json({
+        success: true,
+        message: 'Resuming existing test',
+        attemptId: existingAttempt._id,
+        isResume: true,
+        requestedMode: existingAttempt.mode,
+        isTimerRequired: existingAttempt.mode === 'exam',
+        timerMinutes: existingAttempt.mode === 'exam' ? 20 : 0,
+        data: existingAttempt.mcqIds,
+      });
     }
 
     // ✅ STEP 2: Fresh MCQ Generate
@@ -2653,12 +2659,27 @@ export const saveCustomAnswer = async (req, res) => {
       userId,
       status: 'in_progress',
     });
-
     if (!attempt) {
       return res.status(404).json({
         success: false,
         message: 'Attempt not found',
       });
+    }
+    // ⏳ Exam Mode Timer Validation
+    if (attempt && attempt.mode === 'exam') {
+      const elapsedMinutes =
+        (Date.now() - new Date(attempt.startedAt)) / (1000 * 60);
+
+      if (elapsedMinutes >= 20) {
+        attempt.status = 'auto_submitted';
+        attempt.submittedAt = new Date();
+        await attempt.save();
+
+        return res.status(400).json({
+          success: false,
+          message: 'Time expired. Test auto submitted.',
+        });
+      }
     }
 
     const existingAnswer = attempt.answers.find(
@@ -2745,37 +2766,84 @@ export const submitCustomTest = async (req, res) => {
     const total = dbMcqs.length;
     const scorePercentage = (correct / total) * 100;
 
-    attempt.result = {
-      totalQuestions: total,
-      correct,
-      incorrect,
-      notAttempted,
-      scorePercentage,
-    };
-
-    attempt.submittedAt = new Date();
-    await attempt.save();
+    await CustomTestAttempt.updateOne(
+      { _id: attemptId, userId },
+      {
+        $set: {
+          status: attempt.status,
+          result: {
+            totalQuestions: total,
+            correct,
+            incorrect,
+            notAttempted,
+            scorePercentage,
+          },
+          submittedAt: new Date(),
+        },
+      }
+    );
 
     res.json({
       success: true,
-      result: attempt.result,
+      result: {
+        totalQuestions: total,
+        correct,
+        incorrect,
+        notAttempted,
+        scorePercentage,
+      },
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+export const restartCustomTest = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const attempt = await CustomTestAttempt.findOne({
+      userId,
+      status: { $ne: 'in_progress' },
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: 'No custom test found',
+      });
+    }
+
+    // 🔥 RESET EVERYTHING
+    attempt.answers = [];
+    attempt.result = null;
+    attempt.status = 'in_progress';
+    attempt.startedAt = new Date();
+    attempt.submittedAt = null;
+
+    await attempt.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Test restarted successfully',
+      attemptId: attempt._id,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 export const getCustomTestHistory = async (req, res) => {
   try {
-    const attempts = await CustomTestAttempt.find({
+    const attempt = await CustomTestAttempt.findOne({
       userId: req.user._id,
-      status: { $ne: 'in_progress' },
-    }).sort({ createdAt: -1 });
+    });
 
     res.json({
       success: true,
-      count: attempts.length,
-      data: attempts,
+      count: attempt ? 1 : 0,
+      data: attempt ? [attempt] : [],
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -3228,71 +3296,83 @@ export const applyPromoCode = async (req, res) => {
     const { promoCode, planId, selectedMonths } = req.body;
 
     // 1. Find Promo Code
-    const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
+    const promo = await PromoCode.findOne({
+      code: promoCode.toUpperCase(),
+      isActive: true,
+    });
     if (!promo) {
-      return res.status(404).json({ message: "Invalid or inactive promo code" });
+      return res
+        .status(404)
+        .json({ message: 'Invalid or inactive promo code' });
     }
 
     // 2. Check Expiry
     if (new Date() > new Date(promo.expiryDate)) {
-      return res.status(400).json({ message: "Promo code has expired" });
+      return res.status(400).json({ message: 'Promo code has expired' });
     }
 
     // 3. Check Usage Limit
     if (promo.usedCount >= promo.usageLimit) {
-      return res.status(400).json({ message: "Promo code usage limit reached" });
+      return res
+        .status(400)
+        .json({ message: 'Promo code usage limit reached' });
     }
 
     // 4. Find Subscription Plan
     const plan = await SubscriptionPlan.findById(planId);
     if (!plan) {
-      return res.status(404).json({ message: "Subscription plan not found" });
+      return res.status(404).json({ message: 'Subscription plan not found' });
     }
 
     // 5. Get Price for the selected months
-    const pricingTier = plan.pricing.find(p => p.months === selectedMonths);
+    const pricingTier = plan.pricing.find((p) => p.months === selectedMonths);
     if (!pricingTier) {
-      return res.status(400).json({ message: `This plan does not offer a ${selectedMonths} month duration` });
+      return res.status(400).json({
+        message: `This plan does not offer a ${selectedMonths} month duration`,
+      });
     }
 
     const originalPrice = pricingTier.price;
 
     // 6. Check Applicability (Months Restriction)
     // Agar promo code sirf 6 ya 12 months ke liye hai, aur user ne 1 month select kiya hai
-    if (promo.applicableMonths.length > 0 && !promo.applicableMonths.includes(selectedMonths)) {
+    if (
+      promo.applicableMonths.length > 0 &&
+      !promo.applicableMonths.includes(selectedMonths)
+    ) {
       return res.status(400).json({
-        message: `This promo code is only applicable for ${promo.applicableMonths.join(', ')} month plans`
+        message: `This promo code is only applicable for ${promo.applicableMonths.join(', ')} month plans`,
       });
     }
 
     // 7. Check Min Purchase
     if (originalPrice < promo.minPurchase) {
       return res.status(400).json({
-        message: `Minimum purchase of ₹${promo.minPurchase} required for this promo code`
+        message: `Minimum purchase of ₹${promo.minPurchase} required for this promo code`,
       });
     }
 
     // 8. Calculate Discount
-  let discountAmount = 0;
-const dValue = Number(promo.discountValue); // Force conversion to number
-const mDiscount = Number(promo.maxDiscount);
+    let discountAmount = 0;
+    const dValue = Number(promo.discountValue); // Force conversion to number
+    const mDiscount = Number(promo.maxDiscount);
 
-if (promo.discountType === 'percentage') {
-  // 12000 * 60 / 100 = 7200
-  discountAmount = (originalPrice * dValue) / 100;
+    if (promo.discountType === 'percentage') {
+      // 12000 * 60 / 100 = 7200
+      discountAmount = (originalPrice * dValue) / 100;
 
-  console.log("Calculated % Discount:", discountAmount); // Check karein terminal mein
+      console.log('Calculated % Discount:', discountAmount); // Check karein terminal mein
 
-  // Agar maxDiscount 0 se bada hai, tabhi cap lagayein
-  if (mDiscount > 0 && discountAmount > mDiscount) {
-    discountAmount = mDiscount;
-    console.log("Capped by maxDiscount:", mDiscount);
-  }
-} else {
-  discountAmount = dValue;
-}
+      // Agar maxDiscount 0 se bada hai, tabhi cap lagayein
+      if (mDiscount > 0 && discountAmount > mDiscount) {
+        discountAmount = mDiscount;
+        console.log('Capped by maxDiscount:', mDiscount);
+      }
+    } else {
+      discountAmount = dValue;
+    }
 
-const finalAmount = originalPrice - discountAmount;
+    const finalAmount = originalPrice - discountAmount;
 
     return res.status(200).json({
       success: true,
@@ -3301,11 +3381,12 @@ const finalAmount = originalPrice - discountAmount;
         originalPrice: originalPrice,
         discountAmount: discountAmount,
         finalAmount: finalAmount,
-        message: "Promo code applied successfully!"
-      }
+        message: 'Promo code applied successfully!',
+      },
     });
-
   } catch (error) {
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
+    return res
+      .status(500)
+      .json({ message: 'Internal Server Error', error: error.message });
   }
 };
