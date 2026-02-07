@@ -38,7 +38,7 @@ import {
   getBookmarksList,
   getUserDashboardStats,
   getfaculty,
-  getAllTopicsCount
+  getAllTopicsCount,
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -63,6 +63,10 @@ import {
   getChaptersWithTopicCountBySubSubject,
   getTopicVideosForUser,
   getCustomPracticeMCQs,
+  resumeCustomTest,
+  saveCustomAnswer,
+  submitCustomTest,
+  getCustomTestHistory,
 } from '../../controllers/user/userController.js';
 
 import { testLimiter, otpLimiter } from '../../middleware/limiter.js';
@@ -441,12 +445,12 @@ userRouter.get(
   protect,
   getTopicsByChapterForUser
 );
-userRouter.get('/topic-details/:topicId',protect, getTopicFullDetails);
+userRouter.get('/topic-details/:topicId', protect, getTopicFullDetails);
 
 userRouter.get('/get-chapters/:subSubjectId', getChapterBySubSubjectId);
 userRouter.get('/topic-videos/:topicId', protect, getTopicVideosForUser);
 userRouter.post('/update-progress', protect, updateVideoProgress);
-userRouter.post('/generate-custom-test', protect, getCustomPracticeMCQs);
+
 userRouter.get('/daily-mcq', getDailyMCQ);
 
 /* ================= MCQ / TEST ================= */
@@ -472,9 +476,20 @@ userRouter.get('/get-mcqs', protect, getMcqsByChapter);
  *                 items:
  *                   type: object
  */
-userRouter.post('/submit-test', testLimiter, protect,  submitTest);
+userRouter.post('/submit-test', testLimiter, protect, submitTest);
 // userRouter.post('/submit-Qtest', protect, submitTestByChapter);
 /* ================= SUBSCRIPTION ROUTES ================= */
+
+//custom test attempt routes
+userRouter.post('/generate-custom-test', protect, getCustomPracticeMCQs);
+
+userRouter.get('/custom-test/:attemptId', protect, resumeCustomTest);
+
+userRouter.post('/save-custom-answer', protect, saveCustomAnswer);
+
+userRouter.post('/submit-custom-test', protect, submitCustomTest);
+
+userRouter.get('/custom-test-history', protect, getCustomTestHistory);
 
 userRouter.get('/get-plans', getActivePlans);
 
@@ -739,7 +754,7 @@ userRouter.get('/profile/:id', protect, getUserData);
  *         description: Unauthorized
  */
 userRouter.post('/rating', protect, postRating);
-userRouter.get('/facultylist',  getfaculty);
+userRouter.get('/facultylist', getfaculty);
 userRouter.get('/count-all-topics', getAllTopicsCount);
 
 export default userRouter;

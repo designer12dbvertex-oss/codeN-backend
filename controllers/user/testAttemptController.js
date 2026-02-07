@@ -1185,21 +1185,45 @@ export const getAttemptAnswers = async (req, res) => {
   }
 };
 
-export const submitTestByChapter = async (req, res) => {
+export const submitQTestByChapter = async (req, res) => {
   try {
-    const { chapterId, answers } = req.body;
-    if (!(await enforceSubscription(req.user._id, res))) return;
+    const { qtestId, chapterId, answers } = req.body;
+    const userId = req.user._id;
+
+    if (!(await enforceSubscription(userId, res))) return;
 
     // 1️⃣ Validation
-    if (!chapterId || !Array.isArray(answers)) {
+    if (!qtestId || !chapterId || !Array.isArray(answers)) {
       return res.status(400).json({
         success: false,
-        message: 'chapterId and answers array are required',
+        message: 'qtestId, chapterId and answers array are required',
       });
     }
 
-    // 2️⃣ Chapter ke MCQs lao
+    if (!mongoose.Types.ObjectId.isValid(qtestId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid qtestId',
+      });
+    }
+
+    // 2️⃣ Validate Q-Test Exists
+    const qtest = await Test.findOne({
+      _id: qtestId,
+      status: 'active',
+      testMode: 'regular',
+    }).lean();
+
+    if (!qtest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Q-Test not found or inactive',
+      });
+    }
+
+    // 3️⃣ Fetch MCQs ONLY of that Q-Test + chapter
     const mcqs = await MCQ.find({
+      testId: qtestId,   // 🔥 DB field still testId hi rahega
       chapterId,
       status: 'active',
     }).select('_id correctAnswer');
@@ -1207,17 +1231,19 @@ export const submitTestByChapter = async (req, res) => {
     if (mcqs.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'No MCQs found for this chapter',
+        message: 'No MCQs found for this Q-Test & chapter',
       });
     }
 
-    // 3️⃣ Result calculation
+    // 4️⃣ Calculate Result
     let correct = 0;
     let incorrect = 0;
     let notAttempted = 0;
 
     mcqs.forEach((mcq) => {
-      const userAnswer = answers.find((a) => a.mcqId === mcq._id.toString());
+      const userAnswer = answers.find(
+        (a) => a.mcqId === mcq._id.toString()
+      );
 
       if (
         !userAnswer ||
@@ -1225,7 +1251,9 @@ export const submitTestByChapter = async (req, res) => {
         userAnswer.selectedIndex === undefined
       ) {
         notAttempted++;
-      } else if (userAnswer.selectedIndex === mcq.correctAnswer) {
+      } else if (
+        Number(userAnswer.selectedIndex) === Number(mcq.correctAnswer)
+      ) {
         correct++;
       } else {
         incorrect++;
@@ -1235,10 +1263,20 @@ export const submitTestByChapter = async (req, res) => {
     const total = mcqs.length;
     const percentage = ((correct / total) * 100).toFixed(2);
 
-    // 4️⃣ Response
+    // 5️⃣ Save Attempt
+    await TestAttempt.create({
+      userId,
+      testId: qtestId,  // 🔥 DB me field name same rehne do
+      chapterId,
+      mode: 'regular',
+      answers,
+      score: correct,
+      submittedAt: new Date(),
+    });
+
     return res.status(200).json({
       success: true,
-      message: 'Test submitted successfully',
+      message: 'Q-Test submitted successfully',
       result: {
         totalQuestions: total,
         correct,
@@ -1248,13 +1286,14 @@ export const submitTestByChapter = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error('submitTestByChapter error:', error);
+    console.error('submitQTestByChapter error:', error);
     return res.status(500).json({
       success: false,
-      message: 'Failed to submit test',
+      message: 'Failed to submit Q-Test',
     });
   }
 };
+
 
 /**
  * @desc   Get Q-Tests by Chapter (User Side)

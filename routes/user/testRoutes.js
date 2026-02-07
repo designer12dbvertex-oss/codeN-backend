@@ -38,7 +38,7 @@ import {
   submitAnswer,
   submitTest,
   getTestResult,
-  submitTestByChapter,
+  submitQTestByChapter,
   getTestReview,
   getQTestsByChapter,
   getMcqsByTestId,
@@ -71,7 +71,7 @@ router.post('/attempt/:attemptId/answer', protect, submitAnswer);
 // Submit Test (manual)
 router.post('/attempt/:attemptId/submit', protect, submitTest);
 
-router.post('/submit-Qtest', protect, submitTestByChapter);
+router.post('/submit-Qtest', protect, submitQTestByChapter);
 router.get('/qtest/:chapterId', protect, getQTestsByChapter);
 router.get('/qtest/:testId/mcqs', protect, getMcqsByTestId);
 
