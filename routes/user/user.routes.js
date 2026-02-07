@@ -39,6 +39,7 @@ import {
   getUserDashboardStats,
   getfaculty,
   getAllTopicsCount,
+  applyPromoCode
 } from '../../controllers/user/userController.js';
 
 import { getAboutUs } from '../../controllers/admin/AboutUs/aboutus.controller.js';
@@ -765,5 +766,6 @@ userRouter.get('/profile/:id', protect, getUserData);
 userRouter.post('/rating', protect, postRating);
 userRouter.get('/facultylist', getfaculty);
 userRouter.get('/count-all-topics', getAllTopicsCount);
+userRouter.post("/promo-apply",applyPromoCode );
 
 export default userRouter;
