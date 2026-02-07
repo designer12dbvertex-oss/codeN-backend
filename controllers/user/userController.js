@@ -2666,7 +2666,7 @@ export const saveCustomAnswer = async (req, res) => {
       });
     }
     // ⏳ Exam Mode Timer Validation
-    if (attempt && attempt.mode === 'exam') {
+    if (attempt.mode === 'exam') {
       const elapsedMinutes =
         (Date.now() - new Date(attempt.startedAt)) / (1000 * 60);
 
@@ -2941,14 +2941,9 @@ export const getChapterFullDetails = async (req, res, next) => {
 /**
  * common validation helper
  */
-const validateBookmark = ({ type, mcqId, chapterId, subSubjectId }) => {
+const validateBookmark = ({ type, itemId }) => {
   if (!type) return 'type is required';
-
-  if (type === 'mcq' && !mcqId) return 'mcqId is required';
-  if (type === 'chapter' && !chapterId) return 'chapterId is required';
-  if (type === 'sub-subject' && !subSubjectId)
-    return 'subSubjectId is required';
-
+  if (!itemId) return 'itemId is required';
   return null;
 };
 
@@ -2965,15 +2960,20 @@ export const addBookmark = async (req, res) => {
       });
     }
 
-    // 2. Data Prepare karein
     const bookmarkData = {
       userId: req.user._id,
       type,
-      category, // Ye bhejra zaruri hai (important, veryimportant, etc.)
-      mcqId: type === 'mcq' ? mcqId : null,
-      chapterId: type === 'chapter' ? chapterId : null,
-      topicId: type === 'topic' ? topicId : null,
-      subSubjectId: type === 'sub-subject' ? subSubjectId : null,
+      category,
+      itemId:
+        type === 'mcq'
+          ? mcqId
+          : type === 'chapter'
+            ? chapterId
+            : type === 'topic'
+              ? topicId
+              : type === 'sub-subject'
+                ? subSubjectId
+                : null,
     };
 
     // 3. Create Bookmark
@@ -3009,10 +3009,7 @@ export const removeBookmark = async (req, res) => {
     await Bookmark.findOneAndDelete({
       userId: req.user._id,
       type: req.body.type,
-      mcqId: req.body.type === 'mcq' ? req.body.mcqId : null,
-      chapterId: req.body.type === 'chapter' ? req.body.chapterId : null,
-      subSubjectId:
-        req.body.type === 'sub-subject' ? req.body.subSubjectId : null,
+      itemId: req.body.itemId,
     });
 
     res.json({ success: true, message: 'Bookmark removed' });
@@ -3128,12 +3125,7 @@ export const getBookmarksList = async (req, res) => {
       filter.category = category;
     }
 
-    const list = await Bookmark.find(filter)
-      .populate('mcqId')
-      .populate('topicId')
-      .populate('chapterId')
-      .populate('subSubjectId')
-      .sort({ createdAt: -1 });
+    const list = await Bookmark.find(filter).sort({ createdAt: -1 });
 
     res.status(200).json({ success: true, count: list.length, data: list });
   } catch (error) {
@@ -3372,7 +3364,8 @@ export const applyPromoCode = async (req, res) => {
       discountAmount = dValue;
     }
 
-    const finalAmount = originalPrice - discountAmount;
+    let finalAmount = originalPrice - discountAmount;
+    if (finalAmount < 0) finalAmount = 0;
 
     return res.status(200).json({
       success: true,
