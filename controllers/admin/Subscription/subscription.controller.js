@@ -1,7 +1,6 @@
 import SubscriptionPlan from "../../../models/admin/SubscriptionPlan/scriptionplan.model.js";
 import User from "../../../models/user/userModel.js";
 import SubscriptionTransaction from "../../../models/admin/SubscriptionTransaction.js";
-import PromoCode from '../../../models/admin/promo/promo.model.js';
 
 
 
@@ -200,89 +199,3 @@ export const getMySubscription = async (req, res) => {
   }
 };
 
-export const applyPromoCode = async (req, res) => {
-  try {
-    const { promoCode, planId, selectedMonths } = req.body;
-
-    // 1. Find Promo Code
-    const promo = await PromoCode.findOne({ code: promoCode.toUpperCase(), isActive: true });
-    if (!promo) {
-      return res.status(404).json({ message: "Invalid or inactive promo code" });
-    }
-
-    // 2. Check Expiry
-    if (new Date() > new Date(promo.expiryDate)) {
-      return res.status(400).json({ message: "Promo code has expired" });
-    }
-
-    // 3. Check Usage Limit
-    if (promo.usedCount >= promo.usageLimit) {
-      return res.status(400).json({ message: "Promo code usage limit reached" });
-    }
-
-    // 4. Find Subscription Plan
-    const plan = await SubscriptionPlan.findById(planId);
-    if (!plan) {
-      return res.status(404).json({ message: "Subscription plan not found" });
-    }
-
-    // 5. Get Price for the selected months
-    const pricingTier = plan.pricing.find(p => p.months === selectedMonths);
-    if (!pricingTier) {
-      return res.status(400).json({ message: `This plan does not offer a ${selectedMonths} month duration` });
-    }
-
-    const originalPrice = pricingTier.price;
-
-    // 6. Check Applicability (Months Restriction)
-    // Agar promo code sirf 6 ya 12 months ke liye hai, aur user ne 1 month select kiya hai
-    if (promo.applicableMonths.length > 0 && !promo.applicableMonths.includes(selectedMonths)) {
-      return res.status(400).json({ 
-        message: `This promo code is only applicable for ${promo.applicableMonths.join(', ')} month plans` 
-      });
-    }
-
-    // 7. Check Min Purchase
-    if (originalPrice < promo.minPurchase) {
-      return res.status(400).json({ 
-        message: `Minimum purchase of ₹${promo.minPurchase} required for this promo code` 
-      });
-    }
-
-    // 8. Calculate Discount
-  let discountAmount = 0;
-const dValue = Number(promo.discountValue); // Force conversion to number
-const mDiscount = Number(promo.maxDiscount);
-
-if (promo.discountType === 'percentage') {
-  // 12000 * 60 / 100 = 7200
-  discountAmount = (originalPrice * dValue) / 100;
-
-  console.log("Calculated % Discount:", discountAmount); // Check karein terminal mein
-
-  // Agar maxDiscount 0 se bada hai, tabhi cap lagayein
-  if (mDiscount > 0 && discountAmount > mDiscount) {
-    discountAmount = mDiscount;
-    console.log("Capped by maxDiscount:", mDiscount);
-  }
-} else {
-  discountAmount = dValue;
-}
-
-const finalAmount = originalPrice - discountAmount;
-
-    return res.status(200).json({
-      success: true,
-      data: {
-        promoCode: promo.code,
-        originalPrice: originalPrice,
-        discountAmount: discountAmount,
-        finalAmount: finalAmount,
-        message: "Promo code applied successfully!"
-      }
-    });
-
-  } catch (error) {
-    return res.status(500).json({ message: "Internal Server Error", error: error.message });
-  }
-};
