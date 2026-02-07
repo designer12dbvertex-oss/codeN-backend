@@ -2512,22 +2512,44 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
     }
 
     if (existingAttempt) {
-      return res.status(200).json({
-        success: true,
-        message: 'Resuming existing test',
-        attemptId: existingAttempt._id,
-        isResume: true,
-        requestedMode: existingAttempt.mode,
-        isTimerRequired: existingAttempt.mode === 'exam',
-        timerMinutes: existingAttempt.mode === 'exam' ? 20 : 0,
-        data: existingAttempt.mcqIds,
-      });
+      // 🔥 If test is completed → delete old and create new
+      if (existingAttempt.status !== 'in_progress') {
+        await CustomTestAttempt.deleteOne({ _id: existingAttempt._id });
+      } else {
+        // Resume only if still running
+        return res.status(200).json({
+          success: true,
+          message: 'Resuming existing test',
+          attemptId: existingAttempt._id,
+          isResume: true,
+          requestedMode: existingAttempt.mode,
+          isTimerRequired: existingAttempt.mode === 'exam',
+          timerMinutes: existingAttempt.mode === 'exam' ? 20 : 0,
+          data: existingAttempt.mcqIds,
+        });
+      }
     }
 
-    // ✅ STEP 2: Fresh MCQ Generate
+    // STEP 2️⃣: Get subSubjects of subject
+    const subSubjects = await SubSubject.find({
+      subjectId: subjectId,
+      status: 'active',
+    }).select('_id');
+
+    const subSubjectIds = subSubjects.map((s) => s._id);
+
+    // STEP 3️⃣: Get chapters of those subSubjects
+    const chapters = await Chapter.find({
+      subSubjectId: { $in: subSubjectIds },
+      status: 'active',
+    }).select('_id');
+
+    const chapterIds = chapters.map((c) => c._id);
+
+    // STEP 4️⃣: Now filter MCQs using chapterIds
     const filter = {
       status: 'active',
-      subjectId: new mongoose.Types.ObjectId(subjectId),
+      chapterId: { $in: chapterIds },
     };
 
     if (tagId) {
@@ -2800,10 +2822,7 @@ export const submitCustomTest = async (req, res) => {
 export const restartCustomTest = async (req, res) => {
   try {
     const userId = req.user._id;
-    const attempt = await CustomTestAttempt.findOne({
-      userId,
-      status: { $ne: 'in_progress' },
-    });
+    const attempt = await CustomTestAttempt.findOne({ userId });
 
     if (!attempt) {
       return res.status(404).json({
@@ -2812,7 +2831,7 @@ export const restartCustomTest = async (req, res) => {
       });
     }
 
-    // 🔥 RESET EVERYTHING
+    // 🔥 Reset only (never create new here)
     attempt.answers = [];
     attempt.result = null;
     attempt.status = 'in_progress';
