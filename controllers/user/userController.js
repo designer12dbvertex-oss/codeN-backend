@@ -27,7 +27,7 @@ import TestAttempt from '../../models/user/testAttemptModel.js';
 import Bookmark from '../../models/admin/bookmarkModel.js';
 import admin from 'firebase-admin';
 import Faculty from '../../models/admin/faculty/faculty.model.js';
-
+import CustomTestAttempt from '../../models/user/customTestAttempt.model.js';
 import { enforceSubscription } from '../../utils/subscriptionHelper.js';
 
 const updateUserChapterProgress = async (userId, chapterId) => {
@@ -2480,31 +2480,56 @@ export const updateVideoProgress = async (req, res) => {
 export const getCustomPracticeMCQs = async (req, res, next) => {
   try {
     const { subjectId, tagId, difficulty, mode } = req.body;
-    if (!(await enforceSubscription(req.user._id, res))) return;
+    const userId = req.user._id;
+
+    if (!(await enforceSubscription(userId, res))) return;
 
     if (!subjectId) {
-      return res
-        .status(400)
-        .json({ success: false, message: 'Subject ID is required' });
+      return res.status(400).json({
+        success: false,
+        message: 'Subject ID is required',
+      });
     }
 
-    // 1. Base Filter (Jo database mein match karega)
+    const testMode = mode?.toLowerCase() === 'exam' ? 'exam' : 'regular';
+
+    // ✅ STEP 1: Agar regular mode hai to existing in_progress attempt check karo
+    if (testMode === 'regular') {
+      const existingAttempt = await CustomTestAttempt.findOne({
+        userId,
+        mode: 'regular',
+        status: 'in_progress',
+      }).populate('mcqIds');
+
+      if (existingAttempt) {
+        return res.status(200).json({
+          success: true,
+          message: 'Resuming previous test',
+          attemptId: existingAttempt._id,
+          isResume: true,
+          requestedMode: 'regular',
+          isTimerRequired: false,
+          timerMinutes: 0,
+          data: existingAttempt.mcqIds,
+        });
+      }
+    }
+
+    // ✅ STEP 2: Fresh MCQ Generate
     const filter = {
       status: 'active',
       subjectId: new mongoose.Types.ObjectId(subjectId),
     };
 
-    if (tagId) filter.tagId = new mongoose.Types.ObjectId(tagId);
-
-    // Difficulty match (Case-insensitive)
-    if (difficulty) {
-      filter.difficulty = { $regex: new RegExp(`^${difficulty}$`, 'i') };
+    if (tagId) {
+      filter.tagId = new mongoose.Types.ObjectId(tagId);
     }
 
-    /** * NOTE: Agar aapke MCQ Model mein 'mode' field nahi hai,
-     * toh filter.mode ko match nahi karenge, warna result 0 aayega.
-     * Hum sirf request se mode lekar frontend ko response bhejenge.
-     */
+    if (difficulty) {
+      filter.difficulty = {
+        $regex: new RegExp(`^${difficulty}$`, 'i'),
+      };
+    }
 
     const mcqs = await MCQ.aggregate([
       { $match: filter },
@@ -2526,27 +2551,231 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
           difficulty: 1,
           marks: 1,
           negativeMarks: 1,
-          // Jo mode user ne request mein bheja hai, wahi har MCQ mein dikhega
-          mode: { $literal: mode || 'regular' },
+          mode: { $literal: testMode },
           tag: { $arrayElemAt: ['$tagDetails', 0] },
         },
       },
     ]);
 
-    // 2. Timer Logic based on requested 'mode'
-    // Sirf 'exam' mode hone par hi timer activate hoga
-    const isExamMode = mode?.toLowerCase() === 'exam';
+    if (mcqs.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No MCQs found',
+      });
+    }
 
-    res.status(200).json({
+    // ✅ STEP 3: Attempt Create
+    const attempt = await CustomTestAttempt.create({
+      userId,
+      mcqIds: mcqs.map((m) => m._id),
+      mode: testMode,
+      status: 'in_progress',
+      startedAt: new Date(),
+    });
+
+    const isExamMode = testMode === 'exam';
+
+    return res.status(200).json({
       success: true,
+      attemptId: attempt._id,
+      isResume: false,
       count: mcqs.length,
-      requestedMode: mode || 'regular',
+      requestedMode: testMode,
       isTimerRequired: isExamMode,
-      timerMinutes: isExamMode ? 20 : 0, // Exam mode = 20 mins, Regular = 0
+      timerMinutes: isExamMode ? 20 : 0,
       data: mcqs,
     });
   } catch (error) {
     next(error);
+  }
+};
+
+export const resumeCustomTest = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const userId = req.user._id;
+
+    const attempt = await CustomTestAttempt.findOne({
+      _id: attemptId,
+      userId,
+    }).populate('mcqIds');
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: 'Test not found',
+      });
+    }
+
+    if (attempt.status !== 'in_progress') {
+      return res.status(400).json({
+        success: false,
+        message: 'Test already completed',
+      });
+    }
+
+    // ⏳ Timer validation (Exam Mode)
+    if (attempt.mode === 'exam') {
+      const elapsedMinutes =
+        (Date.now() - new Date(attempt.startedAt)) / (1000 * 60);
+
+      if (elapsedMinutes >= 20) {
+        attempt.status = 'auto_submitted';
+        attempt.submittedAt = new Date();
+        await attempt.save();
+
+        return res.status(400).json({
+          success: false,
+          message: 'Time expired. Test auto submitted.',
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: attempt,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const saveCustomAnswer = async (req, res) => {
+  try {
+    const { attemptId, mcqId, selectedIndex } = req.body;
+    const userId = req.user._id;
+
+    const attempt = await CustomTestAttempt.findOne({
+      _id: attemptId,
+      userId,
+      status: 'in_progress',
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attempt not found',
+      });
+    }
+
+    const existingAnswer = attempt.answers.find(
+      (a) => a.mcqId.toString() === mcqId
+    );
+
+    if (existingAnswer) {
+      existingAnswer.selectedIndex = selectedIndex;
+    } else {
+      attempt.answers.push({ mcqId, selectedIndex });
+    }
+
+    await attempt.save();
+
+    res.json({
+      success: true,
+      message: 'Answer saved',
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const submitCustomTest = async (req, res) => {
+  try {
+    const { attemptId } = req.body;
+    const userId = req.user._id;
+
+    const attempt = await CustomTestAttempt.findOne({
+      _id: attemptId,
+      userId,
+    });
+
+    if (!attempt) {
+      return res.status(404).json({
+        success: false,
+        message: 'Attempt not found',
+      });
+    }
+
+    if (attempt.status !== 'in_progress') {
+      return res.status(400).json({
+        success: false,
+        message: 'Already submitted',
+      });
+    }
+
+    // ⏳ Exam timer validation
+    if (attempt.mode === 'exam') {
+      const elapsedMinutes =
+        (Date.now() - new Date(attempt.startedAt)) / (1000 * 60);
+
+      if (elapsedMinutes >= 20) {
+        attempt.status = 'auto_submitted';
+      } else {
+        attempt.status = 'completed';
+      }
+    } else {
+      attempt.status = 'completed';
+    }
+
+    const dbMcqs = await MCQ.find({
+      _id: { $in: attempt.mcqIds },
+    });
+
+    let correct = 0;
+    let incorrect = 0;
+    let notAttempted = 0;
+
+    dbMcqs.forEach((mcq) => {
+      const userAns = attempt.answers.find(
+        (a) => a.mcqId.toString() === mcq._id.toString()
+      );
+
+      if (!userAns) {
+        notAttempted++;
+      } else if (userAns.selectedIndex === mcq.correctAnswer) {
+        correct++;
+      } else {
+        incorrect++;
+      }
+    });
+
+    const total = dbMcqs.length;
+    const scorePercentage = (correct / total) * 100;
+
+    attempt.result = {
+      totalQuestions: total,
+      correct,
+      incorrect,
+      notAttempted,
+      scorePercentage,
+    };
+
+    attempt.submittedAt = new Date();
+    await attempt.save();
+
+    res.json({
+      success: true,
+      result: attempt.result,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getCustomTestHistory = async (req, res) => {
+  try {
+    const attempts = await CustomTestAttempt.find({
+      userId: req.user._id,
+      status: { $ne: 'in_progress' },
+    }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: attempts.length,
+      data: attempts,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
