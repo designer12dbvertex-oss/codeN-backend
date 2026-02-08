@@ -149,7 +149,10 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: true, // ✅ no mobile OTP system
     },
-
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
     subscription: {
       plan_id: {
         type: mongoose.Schema.Types.ObjectId,
