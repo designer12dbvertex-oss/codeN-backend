@@ -2186,6 +2186,9 @@ export const postRating = async (req, res) => {
       'chapter',
       'video',
       'test',
+      'mcq',
+      'q-test',
+      'custom-test',
     ];
 
     if (!allowedTypes.includes(targetType)) {

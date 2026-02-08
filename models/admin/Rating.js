@@ -44,7 +44,7 @@ const ratingSchema = new mongoose.Schema(
 
     targetType: {
       type: String,
-      enum: ['course', 'subject','sub-subject','topic','chapter','video', 'test'],
+      enum: ['course', 'subject','sub-subject','topic','chapter','video', 'test',"q-test","custom-test",],
       required: true,
     },
 
