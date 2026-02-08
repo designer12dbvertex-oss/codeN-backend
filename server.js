@@ -32,6 +32,8 @@ import Topic from './routes/admin/Topic/topic.js';
 import PaymentList from './routes/admin/paymentRoute.js';
 import faculty from './routes/admin/faculty/faculty.routes.js';
 import promo from './routes/admin/promo/promo.routes.js';
+import Rating from './models/admin/Rating.js';
+import mongoose from 'mongoose';
 // Middleware Imports
 import { errorHandler, notFound } from './middleware/errorMiddleware.js';
 import { startSubscriptionCron } from './cron/subscription.cron.js';
@@ -64,7 +66,11 @@ const app = express();
 
 // Connect Database
 connectDB();
-
+mongoose.connection.once('open', async () => {
+  console.log('✅ Mongo Connected');
+  await Rating.syncIndexes();
+  console.log('✅ Rating indexes synced');
+});
 // Create Uploads Directory if not exists
 // Create Uploads Directories if not exists
 const uploadDirs = [

@@ -2208,7 +2208,12 @@ export const postRating = async (req, res) => {
 
     // 5️⃣ Upsert rating
     const savedRating = await Rating.findOneAndUpdate(
-      { userId, targetType, targetId },
+      {
+        userId: new mongoose.Types.ObjectId(userId),
+        targetType,
+        targetId: new mongoose.Types.ObjectId(targetId),
+      },
+
       {
         rating: numericRating,
         review,
@@ -2226,23 +2231,19 @@ export const postRating = async (req, res) => {
       data: savedRating,
     });
   } catch (error) {
-    console.error('postRating error:', error);
-
-    // 6️⃣ Duplicate key safety (edge case)
-    if (error.code === 11000) {
-      return res.status(409).json({
-        success: false,
-        message: 'You have already rated this item',
-      });
-    }
+    console.error('======== RATING ERROR START ========');
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error code:', error.code);
+    console.error('Full error object:', error);
+    console.error('======== RATING ERROR END ========');
 
     return res.status(500).json({
       success: false,
-      message: 'Failed to submit rating',
+      message: error.message,
     });
   }
 };
-
 // export const postRating = async (req, res) => {
 //   try {
 //     const { rating, review, videoId } = req.body; // videoId add kiya
