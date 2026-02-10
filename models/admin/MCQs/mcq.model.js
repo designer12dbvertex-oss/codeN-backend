@@ -17,12 +17,15 @@ const mcqSchema = new mongoose.Schema(
       ref: 'SubSubject',
       required: true,
     },
-    testId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Test',
-      default: null,
-    },
-
+    // testId: {
+    //   type: mongoose.Schema.Types.ObjectId,
+    //   ref: 'Test',
+    //   default: null,
+    // },
+ testId: [{ 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Test' 
+  }],
     testMode: {
       type: String,
       enum: ['regular', 'exam'],
