@@ -52,5 +52,8 @@ const testSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+// 🔥 PERFORMANCE INDEXES
+testSchema.index({ courseId: 1 });
+testSchema.index({ testMode: 1 });
 
 export default mongoose.model('Test', testSchema);

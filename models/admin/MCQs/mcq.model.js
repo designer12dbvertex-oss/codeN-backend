@@ -22,10 +22,12 @@ const mcqSchema = new mongoose.Schema(
     //   ref: 'Test',
     //   default: null,
     // },
- testId: [{ 
-    type: mongoose.Schema.Types.ObjectId, 
-    ref: 'Test' 
-  }],
+    testId: {
+      type: [mongoose.Schema.Types.ObjectId],
+      ref: 'Test',
+      default: [],
+    },
+
     testMode: {
       type: String,
       enum: ['regular', 'exam'],
@@ -86,5 +88,12 @@ const mcqSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+// 🔥 PERFORMANCE INDEX
+mcqSchema.index({ testId: 1 });
+mcqSchema.index({ chapterId: 1 });
+mcqSchema.index({ subjectId: 1 });
+mcqSchema.index({ status: 1 });
+mcqSchema.index({ difficulty: 1 });
+
 
 export default mongoose.model('MCQ', mcqSchema);

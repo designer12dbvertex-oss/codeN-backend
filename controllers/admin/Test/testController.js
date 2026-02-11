@@ -4,6 +4,7 @@ import SubSubject from '../../../models/admin/Sub-subject/subSubject.model.js';
 import Topic from '../../../models/admin/Topic/topic.model.js';
 import Chapter from '../../../models/admin/Chapter/chapter.model.js';
 import MCQ from '../../../models/admin/MCQs/mcq.model.js';
+import mongoose from 'mongoose';
 
 /**
  * @desc   Create Test
@@ -221,10 +222,12 @@ export const getAllTests = async (req, res) => {
 
     const skip = (page - 1) * Number(limit);
 
-    const tests = await Test.find(filter)
-      .select(
-        'testTitle month academicYear category testMode mcqLimit timeLimit status createdAt updatedAt courseId'
-      )
+ const tests = await Test.find(filter)
+  .populate('mcqs', '_id') // 👈 IMPORTANT
+  .select(
+    'testTitle month academicYear category testMode mcqLimit timeLimit status createdAt updatedAt courseId mcqs'
+  )
+
 
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -234,15 +237,11 @@ export const getAllTests = async (req, res) => {
     const total = await Test.countDocuments(filter);
 
     // 🔥 ADD MCQ COUNTS
-    const testsWithCounts = await Promise.all(
-      tests.map(async (t) => {
-        const count = await MCQ.countDocuments({ testId: t._id });
-        return {
-          ...t,
-          totalQuestions: count,
-        };
-      })
-    );
+const testsWithCounts = tests.map((t) => ({
+  ...t,
+  totalQuestions: t.mcqs ? t.mcqs.length : 0, // 👈 REAL COUNT
+}));
+
 
     res.json({
       success: true,
@@ -307,7 +306,9 @@ export const getSingleTest = async (req, res) => {
     }
 
     // 🔥 ADD MCQ COUNT
-    const count = await MCQ.countDocuments({ testId: test._id });
+    // const count = await MCQ.countDocuments({ testId: test._id });
+  const count = test.mcqs ? test.mcqs.length : 0;
+
 
     return res.status(200).json({
       success: true,
@@ -432,4 +433,90 @@ export const updateTest = async (req, res) => {
   }
 };
 
+export const addMcqToTest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { mcqId } = req.body;
 
+    if (!mcqId) {
+      return res.status(400).json({
+        success: false,
+        message: 'MCQ ID is required',
+      });
+    }
+
+    const test = await Test.findById(id);
+    if (!test) {
+      return res.status(404).json({
+        success: false,
+        message: 'Test not found',
+      });
+    }
+
+    const mcq = await MCQ.findById(mcqId);
+    // 🔥 Prevent duplicate inside Test array
+    if (test.mcqs.some((m) => m.toString() === mcqId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'MCQ already added to this test',
+      });
+    }
+
+    if (!mcq) {
+      return res.status(404).json({
+        success: false,
+        message: 'MCQ not found',
+      });
+    }
+
+    // 🔥 Prevent duplicate inside MCQ array
+    if (mcq.testId.some((t) => t.toString() === id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'MCQ already assigned to this test',
+      });
+    }
+
+    // 🔥 Enforce mcqLimit AFTER duplicate check
+    if (test.mcqs.length >= test.mcqLimit) {
+      return res.status(400).json({
+        success: false,
+        message: `MCQ limit (${test.mcqLimit}) reached`,
+      });
+    }
+
+    // 🔥 START TRANSACTION
+    const session = await mongoose.startSession();
+
+    session.startTransaction();
+
+    try {
+      test.mcqs.push(mcqId);
+      test.totalQuestions = test.mcqs.length;
+      await test.save({ session });
+
+      mcq.testId.push(id);
+
+      await mcq.save({ session });
+
+      await session.commitTransaction();
+      session.endSession();
+
+      return res.status(200).json({
+        success: true,
+        message: 'MCQ added successfully',
+        totalQuestions: test.totalQuestions,
+      });
+    } catch (err) {
+      await session.abortTransaction();
+      session.endSession();
+      throw err;
+    }
+  } catch (error) {
+    console.error('Add MCQ Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+    });
+  }
+};
