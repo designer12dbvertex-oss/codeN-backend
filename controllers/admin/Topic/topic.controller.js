@@ -100,43 +100,38 @@ export const getTopicsByChapter = async (req, res) => {
   }
 };
 
-
-
-
 export const getTopicsByChapterId = async (req, res) => {
   try {
     const { chapterId } = req.params;
 
     // Database mein topics dhoondo jo us Chapter ID se jude hain
-    const topics = await Topic.find({ 
+    const topics = await Topic.find({
       chapterId: chapterId,
-      status: 'active' // Sirf active topics dikhane ke liye
+      status: 'active', // Sirf active topics dikhane ke liye
     })
-    .sort({ order: 1 }) // Order ke hisaab se sequence mein (1, 2, 3...)
-    .populate('chapterId', 'name'); // Chapter ka naam bhi saath ayega
+      .sort({ order: 1 }) // Order ke hisaab se sequence mein (1, 2, 3...)
+      .populate('chapterId', 'name'); // Chapter ka naam bhi saath ayega
 
     if (!topics || topics.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No topics found for this chapter"
+        message: 'No topics found for this chapter',
       });
     }
 
     res.status(200).json({
       success: true,
       count: topics.length,
-      data: topics
+      data: topics,
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      message: "Server Error",
-      error: error.message
+      message: 'Server Error',
+      error: error.message,
     });
   }
 };
-
-
 
 // ==========================
 // GET ALL TOPICS
@@ -189,6 +184,51 @@ export const getAllTopics = async (req, res) => {
 // ==========================
 // GET SINGLE TOPIC
 // ==========================
+// export const getTopicById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+
+//     if (!mongoose.Types.ObjectId.isValid(id)) {
+//       return res.status(400).json({
+//         success: false,
+//         message: 'Invalid topic id',
+//       });
+//     }
+
+//     const topic = await Topic.findById(id)
+//       .populate({
+//         path: 'chapterId',
+//         select: 'name subSubjectId',
+//         populate: {
+//           path: 'subSubjectId',
+//           select: 'name subjectId',
+//           populate: {
+//             path: 'subjectId',
+//             select: 'name',
+//           },
+//         },
+//       })
+//       .populate('createdBy', 'name email');
+
+//     if (!topic) {
+//       return res.status(404).json({
+//         success: false,
+//         message: 'Topic not found',
+//       });
+//     }
+
+//     res.status(200).json({
+//       success: true,
+//       data: topic,
+//     });
+//   } catch (error) {
+//     res.status(500).json({
+//       success: false,
+//       message: error.message,
+//     });
+//   }
+// };
+
 export const getTopicById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -209,11 +249,16 @@ export const getTopicById = async (req, res) => {
           select: 'name subjectId',
           populate: {
             path: 'subjectId',
-            select: 'name',
+            select: 'name courseId', // ✅ include courseId
+            populate: {
+              path: 'courseId',
+              select: 'name', // ✅ populate course
+            },
           },
         },
       })
-      .populate('createdBy', 'name email');
+      .populate('createdBy', 'name email')
+      .lean(); // ✅ production safe
 
     if (!topic) {
       return res.status(404).json({
@@ -227,9 +272,10 @@ export const getTopicById = async (req, res) => {
       data: topic,
     });
   } catch (error) {
+    console.error('Get Topic By ID Error:', error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: 'Server Error',
     });
   }
 };
@@ -353,4 +399,3 @@ export const toggleTopicStatus = async (req, res) => {
     });
   }
 };
-

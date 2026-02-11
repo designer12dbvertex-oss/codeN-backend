@@ -338,21 +338,28 @@ export const getAllMCQs = async (req, res, next) => {
      * ⚠️ CRITICAL: Manual, regular, and exam MCQs must NEVER mix
      */
 
-    if (typeof testId !== 'undefined') {
-      // Case 1: Explicit testId filter (including 'null')
-      if (testId === 'null') {
-        filter.testId = null; // Manual MCQs ONLY
-      } else if (testId) {
-        filter.testId = testId; // Specific test MCQs ONLY
-      }
-    } else if (testMode === 'exam') {
-      // Only exam MCQs that are attached to a test
+    /* ===========================
+   STRICT PRODUCTION FILTERING
+   =========================== */
+
+    // 1️⃣ Specific Test View
+    if (testId && testId !== 'null') {
+      filter.testId = testId;
+    }
+
+    // 2️⃣ Manual MCQs Only
+    else if (testId === 'null') {
+      filter.testMode = null; // manual MCQs
+    }
+
+    // 3️⃣ Exam MCQs Only
+    else if (testMode === 'exam') {
       filter.testMode = 'exam';
-      filter.testId = { $ne: null };
-    } else if (testMode === 'regular') {
-      // Only regular MCQs that are attached to a test
+    }
+
+    // 4️⃣ Regular (Q-Test) MCQs Only
+    else if (testMode === 'regular') {
       filter.testMode = 'regular';
-      filter.testId = { $ne: null };
     }
 
     // Case 5: No explicit filter means return all MCQs (will be grouped by test)
