@@ -217,7 +217,7 @@ export const loginByGoogle = async (req, res, next) => {
       console.log('🏠 Existing User Logged In');
     }
     // 🔐 Subscription / Trial Check
-    if (!(await enforceSubscription(user._id, res))) return;
+    // if (!(await enforceSubscription(user._id, res))) return;
 
     // JWT Token generation (Backend specific)
     const { accessToken, refreshToken } = generateToken(user._id);
@@ -678,7 +678,7 @@ export const login = async (req, res, next) => {
       });
     }
     // 🔐 Subscription / Trial Check
-    if (!(await enforceSubscription(user._id, res))) return;
+    // if (!(await enforceSubscription(user._id, res))) return;
     // =========================
     // 🎟 TOKEN GENERATION
     // =========================
@@ -940,7 +940,7 @@ export const logout = async (req, res, next) => {
 
 export const getMe = async (req, res, next) => {
   try {
-    if (!(await enforceSubscription(req.user._id, res))) return;
+    // if (!(await enforceSubscription(req.user._id, res))) return;
 
     // req.user protect middleware se aata hai
     const user = await UserModel.findById(req.user._id)
@@ -1365,7 +1365,7 @@ export const getChaptersWithTopicCountBySubSubject = async (req, res) => {
   try {
     const { subSubjectId } = req.params;
     const userId = req.user?._id;
-    if (userId && !(await enforceSubscription(userId, res))) return;
+    // if (userId && !(await enforceSubscription(userId, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(subSubjectId)) {
       return res.status(400).json({
@@ -1451,7 +1451,7 @@ export const getTopicsByChapterForUser = async (req, res) => {
   try {
     const { chapterId } = req.params;
     const userId = req.user?._id;
-    if (userId && !(await enforceSubscription(userId, res))) return;
+    // if (userId && !(await enforceSubscription(userId, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(chapterId)) {
       return res.status(400).json({
@@ -1519,7 +1519,7 @@ export const getTopicsByChapterForUser = async (req, res) => {
 export const getTopicFullDetails = async (req, res) => {
   try {
     const { topicId } = req.params;
-    if (!(await enforceSubscription(req.user._id, res))) return;
+    // if (!(await enforceSubscription(req.user._id, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
       return res.status(400).json({
@@ -1732,7 +1732,7 @@ export const getChaptersByTopicForUser = async (req, res) => {
   try {
     const { topicId } = req.params;
     const userId = req.user._id;
-    if (!(await enforceSubscription(userId, res))) return;
+    // if (!(await enforceSubscription(userId, res))) return;
 
     if (!mongoose.Types.ObjectId.isValid(topicId)) {
       return res.status(400).json({
@@ -1929,7 +1929,7 @@ export const getMcqsByChapter = async (req, res) => {
   try {
     const { chapterId } = req.query;
     const userId = req.user._id;
-    if (!(await enforceSubscription(userId, res))) return;
+    // if (!(await enforceSubscription(userId, res))) return;
 
     if (!chapterId) {
       return res
@@ -1961,7 +1961,7 @@ export const submitTest = async (req, res) => {
   try {
     const { chapterId, answers } = req.body;
     // answers format: [{ mcqId: "id", selectedIndex: 0 }, ...]
-    if (!(await enforceSubscription(req.user._id, res))) return;
+    // if (!(await enforceSubscription(req.user._id, res))) return;
 
     if (!chapterId || !answers) {
       return res.status(400).json({ success: false, message: 'Data missing' });
@@ -2158,7 +2158,7 @@ export const postRating = async (req, res) => {
   try {
     const { rating, review, targetType, targetId } = req.body;
     const userId = req.user._id;
-    if (!(await enforceSubscription(userId, res))) return;
+    // if (!(await enforceSubscription(userId, res))) return;
 
     // 1️⃣ Required fields check
     if (rating === undefined || !targetType || !targetId) {
@@ -2275,7 +2275,7 @@ export const postRating = async (req, res) => {
 export const getAllSubSubjectsForUser = async (req, res) => {
   try {
     const { courseId } = req.query; // Course ke base par filter zaroori hai
-    if (!(await enforceSubscription(req.user._id, res))) return;
+    // if (!(await enforceSubscription(req.user._id, res))) return;
 
     if (!courseId) {
       return res
@@ -2325,7 +2325,7 @@ export const getTopicVideosForUser = async (req, res) => {
     const { topicId } = req.params;
     const { filterType } = req.query;
     const userId = req.user._id;
-    if (!(await enforceSubscription(userId, res))) return;
+    // if (!(await enforceSubscription(userId, res))) return;
 
     const topic = await Topic.findById(topicId).select('name').lean();
     const chapters = await Chapter.find({ topicId, status: 'active' })
@@ -2453,7 +2453,7 @@ export const updateVideoProgress = async (req, res) => {
   try {
     const { videoId, topicId, watchTime, totalDuration } = req.body;
     const userId = req.user._id; // Auth middleware se mil raha hai
-    if (!(await enforceSubscription(userId, res))) return;
+    // if (!(await enforceSubscription(userId, res))) return;
 
     // Percentage calculate karein
     const percentage = (watchTime / totalDuration) * 100;
@@ -2492,7 +2492,7 @@ export const getCustomPracticeMCQs = async (req, res, next) => {
     const { subjectId, tagId, difficulty, mode } = req.body;
     const userId = req.user._id;
 
-    if (!(await enforceSubscription(userId, res))) return;
+    // if (!(await enforceSubscription(userId, res))) return;
 
     if (!subjectId) {
       return res.status(400).json({
@@ -2925,7 +2925,7 @@ export const getAllTagsForUsers = async (req, res, next) => {
 export const getChapterFullDetails = async (req, res, next) => {
   try {
     const { chapterId } = req.params;
-    if (!(await enforceSubscription(req.user._id, res))) return;
+    // if (!(await enforceSubscription(req.user._id, res))) return;
 
     // 1. Chapter ki details find karein
     // 2. Videos ko populate karein (Jo is chapterId se match karti hon)
@@ -3243,7 +3243,7 @@ export const toggleBookmark = async (req, res) => {
 export const getUserDashboardStats = async (req, res) => {
   try {
     const userId = req.user._id;
-    if (!(await enforceSubscription(userId, res))) return;
+    // if (!(await enforceSubscription(userId, res))) return;
 
     // User model se tracking fields nikaalein
     const user = await UserModel.findById(userId).select(

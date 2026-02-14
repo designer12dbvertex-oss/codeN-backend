@@ -2,35 +2,44 @@ import cron from 'node-cron';
 import User from '../models/user/userModel.js';
 
 export const startSubscriptionCron = () => {
-  // Har 1 ghante me check karega
+  // 🔥 Har 1 ghante me run karega
   cron.schedule('0 * * * *', async () => {
-    console.log('Running subscription cron...');
+    console.log('⏳ Running 3-Day Trial Expiry Cron...');
 
     try {
       const now = new Date();
 
-      // Trial expired users
-      await User.updateMany(
+      // ✅ 1️⃣ Free Trial Expire
+      const trialResult = await User.updateMany(
         {
-          trialExpiry: { $lt: now },
-          isSubscribed: false,
+          trialExpiry: { $lte: now },
+          isTrialExpired: false,
+          subscriptionStatus: 'free',
         },
         {
-          $set: { trialExpired: true },
+          $set: { isTrialExpired: true },
         }
       );
 
-      // Expired subscription users
-      await User.updateMany(
+      console.log(`Trial expired users: ${trialResult.modifiedCount}`);
+
+      // ✅ 2️⃣ Paid Subscription Expire
+      const subResult = await User.updateMany(
         {
-          subscriptionExpiry: { $lt: now },
+          'subscription.endDate': { $lte: now },
+          'subscription.isActive': true,
         },
         {
-          $set: { isSubscribed: false },
+          $set: {
+            'subscription.isActive': false,
+            subscriptionStatus: 'free',
+          },
         }
       );
+
+      console.log(`Subscription expired users: ${subResult.modifiedCount}`);
     } catch (error) {
-      console.log(error);
+      console.error('❌ Cron Error:', error);
     }
   });
 };

@@ -2,7 +2,7 @@ import UserModel from '../models/user/userModel.js';
 
 export const enforceSubscription = async (userId, res) => {
   const user = await UserModel.findById(userId).select(
-    'subscriptionStatus trialExpiry subscription'
+    'subscriptionStatus trialExpiry subscription isTrialExpired'
   );
 
   if (!user) {
@@ -18,8 +18,7 @@ export const enforceSubscription = async (userId, res) => {
   // ✅ Paid plan active
   if (
     user.subscription?.isActive &&
-    user.subscription?.endDate &&
-    user.subscription.endDate > now
+    user.subscription?.endDate > now
   ) {
     return true;
   }
@@ -27,16 +26,15 @@ export const enforceSubscription = async (userId, res) => {
   // ✅ Trial valid
   if (
     user.subscriptionStatus === 'free' &&
-    user.trialExpiry &&
-    user.trialExpiry > now
+    user.trialExpiry > now &&
+    user.isTrialExpired === false
   ) {
     return true;
   }
 
-  // ❌ Block
   res.status(403).json({
     success: false,
-    message: 'Your free trial has expired. Please subscribe.',
+    message: 'Your 3-day free trial has expired. Please subscribe.',
   });
 
   return false;
