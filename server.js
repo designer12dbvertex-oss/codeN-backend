@@ -63,7 +63,8 @@ console.log('✅ Firebase Admin SDK Initialized');
 
 // Initialize App
 const app = express();
-
+// Start Server
+const PORT = process.env.PORT || 4000;
 // Connect Database
 connectDB();
 mongoose.connection.once('open', async () => {
@@ -133,10 +134,10 @@ const __dirname = path.resolve();
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Swagger UI route
-// app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
-if (process.env.NODE_ENV !== 'production') {
-  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
-}
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+// if (process.env.NODE_ENV !== 'production') {
+//   app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+// }
 
 // --- API Routes ---
 
@@ -166,15 +167,10 @@ app.use('/api/plans', subscriptionRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tests', userTestRoutes);
 
-// Health check route
-app.get('/', (req, res) => {
-  const baseUrl =
-    process.env.BASE_URL || `http://localhost:${process.env.PORT || 4000}`;
-
+app.get(['/api', '/api/'], (req, res) => {
   res.json({
     success: true,
-    message: 'Server is running',
-    swagger: `${baseUrl}/api-docs`,
+    message: `🚀 Server running on port ${PORT}`,
   });
 });
 
@@ -195,9 +191,6 @@ app.use((err, req, res, next) => {
   });
 });
 console.log('Server time:', new Date().toISOString());
-
-// Start Server
-const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
