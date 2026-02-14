@@ -93,6 +93,12 @@ const chapterSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    chapterCode: {
+      type: String,
+      required: true,
+      unique: true,
+      trim: true,
+    },
 
     description: {
       type: String,
@@ -122,6 +128,10 @@ const chapterSchema = new mongoose.Schema(
     isFreePreview: {
       type: Boolean,
       default: false,
+    },
+    topicSequence: {
+      type: Number,
+      default: 0,
     },
 
     status: {

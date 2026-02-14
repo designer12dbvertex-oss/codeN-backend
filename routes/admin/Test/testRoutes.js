@@ -6,10 +6,12 @@ import {
   getSingleTest,
   updateTest,
   deleteTest,
-  addMcqToTest, 
+  addMcqToTest,
+  addMcqByCodonId,
 } from '../../../controllers/admin/Test/testController.js';
 
 import { protect, adminOnly } from '../../../middleware/authMiddleware.js';
+import { authorize } from '../../../middleware/Authorization.middleware.js';
 
 const router = express.Router();
 
@@ -21,5 +23,11 @@ router.put('/:id', protect, adminOnly, updateTest);
 router.delete('/:id', protect, adminOnly, deleteTest);
 router.put('/:id/add-mcq', protect, adminOnly, addMcqToTest);
 
+router.post(
+  '/:testId/add-mcq-by-codon',
+  protect,
+  authorize('admin'),
+  addMcqByCodonId
+);
 
 export default router;

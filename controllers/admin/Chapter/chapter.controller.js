@@ -474,11 +474,15 @@ export const createChapter = async (req, res, next) => {
         message: 'Chapter name must be at least 3 characters',
       });
     }
+    // 🔥 Generate chapterCode automatically
+    const count = await Chapter.countDocuments({ subSubjectId });
+
+    const chapterCode = `CH${String(count + 1).padStart(2, '0')}`;
 
     const chapter = await Chapter.create({
       courseId,
       subSubjectId,
-
+      chapterCode,
       name: name.trim(),
       description,
       weightage: weightage || 0,

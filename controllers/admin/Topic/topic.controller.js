@@ -16,7 +16,6 @@ export const createTopic = async (req, res) => {
       });
     }
 
-    // ✅ Validate chapterId
     if (!mongoose.Types.ObjectId.isValid(chapterId)) {
       return res.status(400).json({
         success: false,
@@ -24,28 +23,26 @@ export const createTopic = async (req, res) => {
       });
     }
 
-    const chapterExists = await Chapter.exists({ _id: chapterId });
-    if (!chapterExists) {
+    const updatedChapter = await Chapter.findByIdAndUpdate(
+      chapterId,
+      { $inc: { topicSequence: 1 } },
+      { new: true }
+    ).select('chapterCode topicSequence');
+
+    if (!updatedChapter) {
       return res.status(404).json({
         success: false,
         message: 'Chapter not found',
       });
     }
 
-    // ✅ Duplicate check (same chapter + same name)
-    const exists = await Topic.findOne({
-      name: name.trim(),
-      chapterId,
-    });
-
-    if (exists) {
-      return res.status(400).json({
-        success: false,
-        message: 'Topic already exists in this chapter',
-      });
-    }
+    const codonId = `${updatedChapter.chapterCode}-T${String(
+      updatedChapter.topicSequence
+    ).padStart(2, '0')}`;
 
     const topic = await Topic.create({
+      codonId,
+      chapterCode: updatedChapter.chapterCode,
       name: name.trim(),
       description,
       order: order || 0,
@@ -54,14 +51,23 @@ export const createTopic = async (req, res) => {
       createdBy: req.admin._id,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       data: topic,
     });
   } catch (error) {
-    res.status(400).json({
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Topic already exists in this chapter',
+      });
+    }
+
+    console.error('Create Topic Error:', error);
+
+    return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message, // show real error
     });
   }
 };
@@ -85,15 +91,15 @@ export const getTopicsByChapter = async (req, res) => {
       status: 'active',
     })
       .select('name description order chapterId status')
-      .sort({ order: 1 });
-
+      .sort({ order: 1 })
+      .lean();
     res.status(200).json({
       success: true,
       count: topics.length,
       data: topics,
     });
   } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
@@ -110,8 +116,8 @@ export const getTopicsByChapterId = async (req, res) => {
       status: 'active', // Sirf active topics dikhane ke liye
     })
       .sort({ order: 1 }) // Order ke hisaab se sequence mein (1, 2, 3...)
-      .populate('chapterId', 'name'); // Chapter ka naam bhi saath ayega
-
+      .populate('chapterId', 'name') // Chapter ka naam bhi saath ayega
+      .lean();
     if (!topics || topics.length === 0) {
       return res.status(404).json({
         success: false,
@@ -328,6 +334,13 @@ export const updateTopic = async (req, res, next) => {
       data: topic,
     });
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Topic already exists in this chapter',
+      });
+    }
+
     next(error);
   }
 };
@@ -396,6 +409,59 @@ export const toggleTopicStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message,
+    });
+  }
+};
+
+// ==========================
+// GET TOPIC BY CODON ID
+// ==========================
+export const getTopicByCodonId = async (req, res) => {
+  try {
+    const { codonId } = req.params;
+
+    if (!codonId) {
+      return res.status(400).json({
+        success: false,
+        message: 'codonId is required',
+      });
+    }
+
+    const topic = await Topic.findOne({ codonId })
+      .populate({
+        path: 'chapterId',
+        select: 'name subSubjectId chapterCode',
+        populate: {
+          path: 'subSubjectId',
+          select: 'name subjectId',
+          populate: {
+            path: 'subjectId',
+            select: 'name courseId',
+            populate: {
+              path: 'courseId',
+              select: 'name',
+            },
+          },
+        },
+      })
+      .lean();
+
+    if (!topic) {
+      return res.status(404).json({
+        success: false,
+        message: 'Topic not found with this codonId',
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: topic,
+    });
+  } catch (error) {
+    console.error('Get Topic By CodonId Error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server Error',
     });
   }
 };

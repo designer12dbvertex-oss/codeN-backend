@@ -1,5 +1,4 @@
 import mongoose from 'mongoose';
-import crypto from 'crypto';
 
 const topicSchema = new mongoose.Schema(
   {
@@ -7,14 +6,19 @@ const topicSchema = new mongoose.Schema(
     codonId: {
       type: String,
       unique: true,
+      required: true,
       index: true,
     },
+
     chapterId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Chapter',
       required: true,
     },
-
+    chapterCode: {
+      type: String,
+      required: true,
+    },
     name: {
       type: String,
       required: true,
@@ -30,7 +34,10 @@ const topicSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
-
+    mcqSequence: {
+      type: Number,
+      default: 0,
+    },
     status: {
       type: String,
       enum: ['active', 'inactive'],
@@ -53,12 +60,12 @@ const topicSchema = new mongoose.Schema(
 
 // 🔁 Unique: same chapter me same topic name duplicate na ho
 topicSchema.index({ chapterId: 1, name: 1 }, { unique: true });
-topicSchema.pre('save', function (next) {
-  if (!this.codonId) {
-    const random = crypto.randomBytes(3).toString('hex').toUpperCase();
-    this.codonId = `Codon-ID-${random}`;
-  }
-  next();
-});
+// topicSchema.pre('save', function (next) {
+//   if (!this.codonId) {
+//     const random = crypto.randomBytes(3).toString('hex').toUpperCase();
+//     this.codonId = `Codon-ID-${random}`;
+//   }
+//   next();
+// });
 
 export default mongoose.model('Topic', topicSchema);

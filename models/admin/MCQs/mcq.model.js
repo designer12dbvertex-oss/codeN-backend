@@ -17,6 +17,12 @@ const mcqSchema = new mongoose.Schema(
       ref: 'SubSubject',
       required: true,
     },
+    codonId: {
+      type: String,
+      unique: true,
+      required: true,
+      index: true,
+    },
     // testId: {
     //   type: mongoose.Schema.Types.ObjectId,
     //   ref: 'Test',
@@ -94,6 +100,5 @@ mcqSchema.index({ chapterId: 1 });
 mcqSchema.index({ subjectId: 1 });
 mcqSchema.index({ status: 1 });
 mcqSchema.index({ difficulty: 1 });
-
 
 export default mongoose.model('MCQ', mcqSchema);

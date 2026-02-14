@@ -51,7 +51,7 @@ export const createMCQ = async (req, res, next) => {
     const files = req.files || {};
 
     // 3. VALIDATE HIERARCHY
-    const chapter = await Chapter.findById(chapterId);
+    const chapter = await Chapter.findById(chapterId).lean();
     if (!chapter)
       return res
         .status(404)
@@ -62,7 +62,8 @@ export const createMCQ = async (req, res, next) => {
         .status(400)
         .json({ success: false, message: 'Topic ID is required' });
 
-    const topic = await Topic.findById(topicId);
+    const topic = await Topic.findById(topicId).lean();
+
     if (!topic)
       return res
         .status(404)
@@ -165,14 +166,21 @@ export const createMCQ = async (req, res, next) => {
         message: 'All options must have text',
       });
     }
-    // 🔥 Duplicate options check (production safety)
-    const optionTexts = finalOptions.map((o) => o.text.trim().toLowerCase());
+    // 🔥 Duplicate options check (Better Debug Version)
+    const optionTexts = finalOptions.map((o) =>
+      (o.text || '').trim().toLowerCase()
+    );
+
     const uniqueOptions = new Set(optionTexts);
 
     if (uniqueOptions.size !== 4) {
+      const duplicates = optionTexts.filter(
+        (item, index) => optionTexts.indexOf(item) !== index
+      );
+
       return res.status(400).json({
         success: false,
-        message: 'Duplicate options are not allowed',
+        message: `Duplicate options found: ${[...new Set(duplicates)].join(', ')}`,
       });
     }
 
@@ -202,6 +210,37 @@ export const createMCQ = async (req, res, next) => {
 
     try {
       session.startTransaction();
+      // 🔥 Atomic increment for MCQ ID (inside transaction)
+      const updatedTopic = await Topic.findByIdAndUpdate(
+        topicId,
+        { $inc: { mcqSequence: 1 } },
+        { new: true, session }
+      ).select('codonId mcqSequence');
+
+      if (!updatedTopic) {
+        throw new Error('Topic not found for ID generation');
+      }
+
+      const chapterData = await Chapter.findById(chapterId)
+        .select('chapterCode')
+        .session(session)
+        .lean();
+
+      if (!chapterData) {
+        throw new Error('Chapter not found for ID generation');
+      }
+
+      const mcqCodonId = `${chapterData.chapterCode}-${updatedTopic.codonId.split('-').pop()}-Q${String(
+        updatedTopic.mcqSequence
+      ).padStart(2, '0')}`;
+      // 🔐 Duplicate safety check (Production Safe)
+      const existing = await MCQ.findOne({ codonId: mcqCodonId }).session(
+        session
+      );
+
+      if (existing) {
+        throw new Error('MCQ ID conflict detected. Please retry.');
+      }
 
       if (testIds.length > 0) {
         for (const tid of testIds) {
@@ -239,6 +278,7 @@ export const createMCQ = async (req, res, next) => {
             testId: testIds,
             testMode: firstTestMode || null,
             courseId: subject.courseId,
+            codonId: mcqCodonId,
             subjectId: subject._id,
             subSubjectId: subSubject._id,
             topicId: topic._id,
@@ -644,7 +684,7 @@ export const updateMCQ = async (req, res, next) => {
 
     /* ---------------- HIERARCHY UPDATE ---------------- */
     if (chapterId && chapterId !== mcq.chapterId?.toString()) {
-      const chapter = await Chapter.findById(chapterId);
+      const chapter = await Chapter.findById(chapterId).lean();
       if (!chapter)
         return res.status(404).json({
           success: false,
@@ -663,7 +703,8 @@ export const updateMCQ = async (req, res, next) => {
     }
 
     if (topicId && topicId !== mcq.topicId?.toString()) {
-      const topic = await Topic.findById(topicId);
+      const topic = await Topic.findById(topicId).lean();
+
       if (topic) mcq.topicId = topicId;
     }
 

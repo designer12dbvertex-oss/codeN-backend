@@ -520,3 +520,70 @@ export const addMcqToTest = async (req, res) => {
     });
   }
 };
+
+
+
+export const addMcqByCodonId = async (req, res) => {
+  try {
+    const { testId } = req.params;
+    const { codonId } = req.body;
+
+    if (!codonId) {
+      return res.status(400).json({
+        success: false,
+        message: 'MCQ Codon ID is required',
+      });
+    }
+
+    const test = await Test.findById(testId);
+    if (!test) {
+      return res.status(404).json({
+        success: false,
+        message: 'Test not found',
+      });
+    }
+
+    const mcq = await MCQ.findOne({ codonId });
+    if (!mcq) {
+      return res.status(404).json({
+        success: false,
+        message: 'MCQ not found with this ID',
+      });
+    }
+
+    // Duplicate check
+    if (mcq.testId.includes(testId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'MCQ already added to this test',
+      });
+    }
+
+    // Limit check
+    if ((test.totalQuestions || 0) >= test.mcqLimit) {
+      return res.status(400).json({
+        success: false,
+        message: 'MCQ limit reached for this test',
+      });
+    }
+
+    // Attach MCQ
+    mcq.testId.push(testId);
+    mcq.testMode = test.testMode;
+    await mcq.save();
+
+    test.mcqs.push(mcq._id);
+    test.totalQuestions = (test.totalQuestions || 0) + 1;
+    await test.save();
+
+    res.status(200).json({
+      success: true,
+      message: `MCQ ${codonId} added successfully`,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};

@@ -3,6 +3,7 @@ import {
   createTopic,
   getAllTopics,
   getTopicById,
+  getTopicByCodonId,
   updateTopic,
   toggleTopicStatus,
   deleteTopicPermanently,
@@ -29,6 +30,10 @@ router.get('/chapter/:chapterId', getTopicsByChapter);
 
 // GET SINGLE TOPIC
 router.get('/:id', getTopicById);
+
+// GET TOPIC BY CODON ID
+router.get('/code/:codonId', getTopicByCodonId);
+
 
 // UPDATE TOPIC
 router.patch('/:id', updateTopic);
