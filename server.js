@@ -172,7 +172,7 @@ app.use('/api/tests', userTestRoutes);
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
-    message: 'Cod_ON Backend API Live 🚀',
+    message: 'CodoN Backend API Live 🚀',
   });
 });
 
