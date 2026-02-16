@@ -126,12 +126,7 @@ const swaggerOptions = {
 const swaggerDocs = swaggerJsdoc(swaggerOptions);
 
 // --- Global Middlewares ---
-app.use(
-  cors({
-    origin: ['https://codonneetug.com'],
-    credentials: true,
-  })
-);
+app.use(cors());
 
 app.use(express.json({ limit: '250mb' }));
 app.use(express.urlencoded({ extended: true, limit: '250mb' }));
